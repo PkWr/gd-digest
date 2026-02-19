@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GD Digest</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:            #0c0c0c;
+  --surface:       #151515;
+  --surface-hover: #1c1c1c;
+  --border:        #252525;
+  --border-strong: #363636;
+  --text:          #e3e0da;
+  --muted:         #868280;
+  --faint:         rgba(255,255,255,0.04);
+
+  --col-exhibition: #5b9cf6;
+  --col-event:      #a78bfa;
+  --col-profile:    #34d399;
+  --col-typeface:   #fbbf24;
+  --col-tool:       #22d3ee;
+  --col-article:    #f87171;
+  --col-book:       #e09450;
+  --col-magazine:   #f472b6;
+  --col-project:    #94a3b8;
+}
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* ── Load screen ───────────────────────────────────────────────────────── */
+#load-screen {
+  position: fixed; inset: 0;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200;
+}
+.load-box {
+  text-align: center; padding: 44px 40px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; max-width: 360px; width: 90%;
+}
+.load-box h1 { font-size: 13px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 10px; }
+.load-box p  { color: var(--muted); font-size: 13px; margin-bottom: 28px; line-height: 1.7; }
+.load-box p strong { color: var(--text); font-weight: 500; }
+.load-box .hint { font-size: 11px; color: var(--muted); margin-top: 14px; margin-bottom: 0; }
+.btn-primary {
+  padding: 9px 22px; background: var(--text); color: var(--bg);
+  border: none; border-radius: 3px; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: opacity 0.12s; letter-spacing: 0.02em;
+}
+.btn-primary:hover { opacity: 0.85; }
+.load-box.drag-over { border-color: var(--col-event); }
+
+/* ── Header ────────────────────────────────────────────────────────────── */
+header {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(12,12,12,0.88);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 20px 10px;
+}
+.header-row {
+  display: flex; align-items: baseline; gap: 12px; margin-bottom: 10px;
+}
+.header-row h1 {
+  font-size: 12px; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+}
+#result-count { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+#search {
+  display: block; width: 100%; max-width: 400px;
+  padding: 7px 13px; margin-bottom: 10px;
+  border: 1px solid var(--border); border-radius: 3px;
+  font-size: 13px; background: rgba(255,255,255,0.04); color: var(--text);
+  transition: border-color 0.12s;
+}
+#search:focus { outline: none; border-color: var(--border-strong); background: var(--surface); }
+#search::placeholder { color: var(--muted); }
+
+/* ── Filter pills ──────────────────────────────────────────────────────── */
+#filters {
+  display: flex; flex-wrap: wrap; gap: 5px; align-items: center;
+}
+.filter-sep { width: 1px; height: 14px; background: var(--border); margin: 0 3px; }
+.pill {
+  display: inline-flex; align-items: center;
+  padding: 3px 9px; border-radius: 3px;
+  border: 1px solid var(--border); background: transparent;
+  font-size: 11px; color: var(--muted); letter-spacing: 0.02em;
+  cursor: pointer; user-select: none; white-space: nowrap;
+  transition: all 0.1s; line-height: 1.7;
+}
+.pill:hover { border-color: var(--border-strong); color: var(--text); }
+.pill.active { background: var(--text); border-color: var(--text); color: var(--bg); font-weight: 600; }
+
+/* colour-coded pills (type filters) */
+.pill.tc { border-color: color-mix(in srgb, var(--tc) 40%, transparent); color: color-mix(in srgb, var(--tc) 55%, var(--muted)); }
+.pill.tc:hover  { border-color: var(--tc); color: var(--tc); background: color-mix(in srgb, var(--tc) 8%, transparent); }
+.pill.tc.active { background: var(--tc); border-color: var(--tc); color: #000; font-weight: 600; }
+
+/* ── Grid ──────────────────────────────────────────────────────────────── */
+main {
+  padding: 16px 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(308px, 1fr));
+  gap: 8px;
+  align-items: start;
+}
+
+/* ── Cards ─────────────────────────────────────────────────────────────── */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 4px; padding: 14px 15px;
+  display: flex; flex-direction: column; gap: 8px;
+  transition: border-color 0.15s;
+}
+.card:hover { border-color: var(--border-strong); }
+.card.is-upcoming { border-left: 2px solid var(--col-event); }
+
+.card-top {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+}
+.type-badge {
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.07em; text-transform: uppercase;
+  padding: 2px 6px; border-radius: 2px; color: #000; flex-shrink: 0;
+}
+.new-badge {
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--col-profile); background: rgba(52,211,153,0.12);
+  padding: 2px 6px; border-radius: 2px;
+}
+.upcoming-label {
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--col-event);
+}
+.card-date {
+  font-family: 'SF Mono', 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 10px; color: var(--muted); margin-left: auto; white-space: nowrap;
+  letter-spacing: 0.03em;
+}
+.card-title { font-size: 13px; font-weight: 600; line-height: 1.35; color: var(--text); }
+.card-info  { font-size: 11.5px; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
+.card-info span::before { content: '— '; }
+.card-desc  { font-size: 12.5px; color: #8a8784; line-height: 1.6; }
+.card-desc em { font-style: italic; color: #a8a5a0; }
+
+.card-tags  { display: flex; flex-wrap: wrap; gap: 4px; }
+.tag {
+  font-size: 11px; padding: 2px 6px;
+  background: transparent; border: 1px solid var(--border);
+  border-radius: 2px; color: var(--muted);
+  cursor: pointer; transition: all 0.1s; user-select: none;
+  letter-spacing: 0.01em;
+}
+.tag:hover  { border-color: var(--border-strong); color: var(--text); }
+.tag.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+/* Colour-coded taxonomy tags */
+.tag.tc { border-color: color-mix(in srgb, var(--tc) 40%, transparent); color: color-mix(in srgb, var(--tc) 60%, var(--muted)); }
+.tag.tc:hover  { border-color: var(--tc); color: var(--tc); background: color-mix(in srgb, var(--tc) 8%, transparent); }
+.tag.tc.active { background: var(--tc); border-color: var(--tc); color: #000; }
+
+.card-links {
+  display: flex; flex-wrap: wrap; gap: 6px 12px;
+  padding-top: 8px; border-top: 1px solid var(--border);
+}
+.card-links a { font-size: 12px; color: #6ba3d6; text-decoration: none; white-space: nowrap; }
+.card-links a:hover { color: #8fbde8; text-decoration: underline; }
+
+.no-results {
+  grid-column: 1 / -1; text-align: center;
+  padding: 80px 20px; color: var(--muted);
+}
+.no-results strong { display: block; font-size: 15px; font-weight: 600; margin-bottom: 6px; color: var(--text); }
+
+mark { background: rgba(251,191,36,0.18); color: #fbbf24; border-radius: 2px; padding: 0 1px; }
+
+@media (max-width: 580px) {
+  main { grid-template-columns: 1fr; padding: 12px; }
+  header { padding: 12px 14px 10px; }
+  #search { max-width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header>
+    <div class="header-row">
+      <h1>GD Digest</h1>
+      <span id="result-count"></span>
+    </div>
+    <input type="search" id="search" placeholder="Search titles, descriptions, tags…" autocomplete="off" spellcheck="false">
+    <div id="filters"></div>
+  </header>
+  <main id="grid"></main>
+</div>
+
+<script>
+'use strict';
+
+// ── Constants ───────────────────────────────────────────────────────────────
+
+// Taxonomy tags from the brief's Categories section — shown as filter pills.
+// Subject tags (location, format, one-offs) stay on cards as clickable chips.
+const CATEGORY_TAGS = new Set([
+  // Core graphic design
+  'typography','identity','editorial','poster','wayfinding','packaging','motion','web',
+  // Adjacent disciplines
+  'photography','illustration','book-arts','printmaking','spatial','branding','art-direction',
+  // Experimental and time-based
+  'generative','interactive','moving-image','experimental',
+  // Production and material
+  'variable','open-source','hand-lettering','risograph','letterpress','screen-print',
+  // Critical and contextual
+  'criticality','history','education','community','self-initiated','commercial',
+]);
+
+// Group colour per taxonomy tag — amber · blue · purple · teal · rose
+const TAG_COLORS = {};
+[
+  ['#fbbf24', ['typography','identity','editorial','poster','wayfinding','packaging','motion','web']],
+  ['#5b9cf6', ['photography','illustration','book-arts','printmaking','spatial','branding','art-direction']],
+  ['#a78bfa', ['generative','interactive','moving-image','experimental']],
+  ['#34d399', ['variable','open-source','hand-lettering','risograph','letterpress','screen-print']],
+  ['#f87171', ['criticality','history','education','community','self-initiated','commercial']],
+].forEach(([color, tags]) => tags.forEach(t => TAG_COLORS[t] = color));
+
+const TYPE_COLORS = {
+  exhibition: '#5b9cf6', event: '#a78bfa', profile: '#34d399',
+  typeface:   '#fbbf24', tool: '#22d3ee', article:  '#f87171',
+  book:       '#e09450', magazine: '#f472b6', project: '#94a3b8',
+};
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// ── State ───────────────────────────────────────────────────────────────────
+const S = {
+  entries:     [],
+  sources:     { intro: '', groups: [] },
+  search:      '',
+  view:        'all',       // all | upcoming | archive | sources
+  types:       new Set(),
+  months:      new Set(),
+  tag:         null,
+};
+
+// ── Parser ───────────────────────────────────────────────────────────────────
+function parseCalendar(md) {
+  const entries = [];
+  const sources = { intro: '', groups: [] };
+  const lines   = md.split('\n');
+  let upcoming  = false;
+  let e         = null;
+  let bodyMode  = false;
+  let srcMode   = false;
+  let srcGroup  = null;
+
+  function save() {
+    if (e && e.title) entries.push(e);
+    e = null; bodyMode = false;
+  }
+
+  // Separator used in entry headers: space · space (middle dot U+00B7)
+  const SEP = ' · ';
+
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+
+    // ── Sources section ──────────────────────────────────────────────────────
+    if (/^## Sources/.test(line)) { save(); srcMode = true; continue; }
+    if (srcMode) {
+      const groupM = line.match(/^\*\*(.+?)\*\*\s*$/);
+      if (groupM) {
+        srcGroup = { title: groupM[1], links: [] };
+        sources.groups.push(srcGroup);
+      } else if (srcGroup && /\[/.test(line)) {
+        line.split(/\s*·\s*/).forEach(seg => {
+          const lm = seg.match(/\[([^\]]+)\]\(([^)]+)\)/);
+          if (!lm) return;
+          const dm = seg.slice(seg.indexOf(')')+1).match(/\s*[—–-]\s*(.+)/);
+          srcGroup.links.push({ text: lm[1], url: lm[2], desc: dm ? dm[1].trim() : null });
+        });
+      } else if (!srcGroup && line.trim() && !line.startsWith('#') && !line.startsWith('*')) {
+        if (sources.intro) sources.intro += ' ';
+        sources.intro += line.trim();
+      }
+      continue;
+    }
+
+    if (/^## Upcoming/.test(line))   { upcoming = true;  continue; }
+    if (/^## \d{4}/.test(line))      { upcoming = false; continue; }
+
+    // Month-divider heading: ### Feb·26 (no space-dot-space separators)
+    if (/^### [A-Z][a-z]+[\u00B7·]\d{2}$/.test(line)) continue;
+
+    if (line === '---') { save(); continue; }
+
+    // Entry heading: ### DATE · TYPE · TITLE
+    if (line.startsWith('### ') && line.includes(SEP)) {
+      save();
+      const body = line.slice(4); // strip "### "
+      const parts = body.split(SEP);
+      if (parts.length < 3) continue;
+
+      const dateRaw = parts[0].trim();
+      const type    = parts[1].trim().toLowerCase();
+      const title   = parts.slice(2).join(SEP).trim(); // rejoin in case title contains ·
+
+      // Parse sortable date from MM·YY (last token of dateRaw)
+      const dateToken  = dateRaw.split(/\s+/).pop();
+      const dotSplit   = dateToken.split(/[\u00B7·]/);
+      const mm = dotSplit[0] || '00';
+      const yy = dotSplit[1] || '26';
+      const monthKey   = dateToken; // e.g. "02·26"
+      const monthLabel = (() => {
+        const n = parseInt(mm, 10);
+        return (n >= 1 && n <= 12) ? `${MONTH_NAMES[n-1]} '${yy}` : monthKey;
+      })();
+
+      e = {
+        dateRaw, dateSort: `20${yy.padStart(2,'0')}-${mm.padStart(2,'0')}`,
+        monthKey, monthLabel,
+        type, title,
+        tags: [], description: '', links: [],
+        format: null, price: null,
+        upcoming, isNew: false,
+      };
+      bodyMode = false;
+      continue;
+    }
+
+    if (!e) continue;
+
+    // Metadata line: *Type: exhibition · Format: in-person · Price: £10 · Tags: `a` `b`*
+    if (/^\*Type:/.test(line)) {
+      const tgM = line.match(/Tags:\s*(.*?)(?=\s*\*|$)/);
+      if (tgM) {
+        e.tags  = [...tgM[1].matchAll(/`([^`]+)`/g)].map(m => m[1]);
+        e.isNew = e.tags.includes('new');
+      }
+      const fmM = line.match(/Format:\s*([^·*`]+)/);
+      if (fmM) e.format = fmM[1].trim();
+      // Price: capture up to next · followed by uppercase, or end of field
+      const pmM = line.match(/Price:\s*([^·*]+?)(?=\s*·\s*[A-Z]|\s*\*|$)/);
+      if (pmM) e.price = pmM[1].trim();
+      bodyMode = true;
+      continue;
+    }
+
+    // Link line (contains at least one markdown link)
+    if (/\[[^\]]+\]\([^)]+\)/.test(line)) {
+      const ms = [...line.matchAll(/\[([^\]]+)\]\(([^)]+)\)/g)];
+      e.links.push(...ms.map(m => ({ text: m[1], url: m[2] })));
+      continue;
+    }
+
+    // Description body
+    if (bodyMode && line.trim() && !line.startsWith('*') && !line.startsWith('#')) {
+      if (e.description) e.description += ' ';
+      e.description += line.trim();
+    }
+  }
+
+  save();
+  return { entries, sources };
+}
+
+// ── Utilities ────────────────────────────────────────────────────────────────
+function esc(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function mdInline(text) {
+  return esc(text)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+}
+function highlight(html, q) {
+  if (!q) return html;
+  const re = new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi');
+  return html.replace(re, '<mark>$1</mark>');
+}
+function typeColor(type) { return TYPE_COLORS[type] || '#6b7280'; }
+
+// ── Filter ───────────────────────────────────────────────────────────────────
+function getFiltered() {
+  const q = S.search.toLowerCase().trim();
+  return S.entries.filter(e => {
+    if (S.view === 'upcoming' && !e.upcoming) return false;
+    if (S.view === 'archive'  &&  e.upcoming) return false;
+    if (S.types.size && !S.types.has(e.type))       return false;
+    if (S.months.size && !S.months.has(e.monthKey)) return false;
+    if (S.tag && !e.tags.includes(S.tag))           return false;
+    if (!q) return true;
+    const corpus = [e.title, e.description, e.tags.join(' '),
+                    e.price||'', e.format||''].join(' ').toLowerCase();
+    return corpus.includes(q);
+  });
+}
+
+// ── Render ───────────────────────────────────────────────────────────────────
+function buildFilters() {
+  const allTypes  = [...new Set(S.entries.map(e => e.type))].sort();
+  // Months in chronological order
+  const allMonths = [...new Map(
+    S.entries.map(e => [e.monthKey, e.monthLabel])
+  ).entries()].sort((a,b) => a[0].localeCompare(b[0]));
+  const viewBtns = ['all','upcoming','archive','sources'].map(v =>
+    `<button class="pill${S.view===v?' active':''}" data-view="${v}">${v.charAt(0).toUpperCase()+v.slice(1)}</button>`
+  ).join('');
+
+  const typeBtns = allTypes.map(t => {
+    const c = TYPE_COLORS[t];
+    return `<button class="pill tc${S.types.has(t)?' active':''}" data-type="${t}"${c?` style="--tc:${c}"`:''}>${t.charAt(0).toUpperCase()+t.slice(1)}</button>`;
+  }).join('');
+
+  const monthBtns = allMonths.map(([key, label]) =>
+    `<button class="pill${S.months.has(key)?' active':''}" data-month="${esc(key)}">${esc(label)}</button>`
+  ).join('');
+
+  const entryFilters = S.view === 'sources' ? '' :
+    `<span class="filter-sep"></span>
+     <div style="display:flex;flex-wrap:wrap;gap:4px">${typeBtns}</div>
+     <span class="filter-sep"></span>
+     <div style="display:flex;flex-wrap:wrap;gap:4px">${monthBtns}</div>`;
+
+  document.getElementById('filters').innerHTML =
+    `<div style="display:flex;gap:4px">${viewBtns}</div>${entryFilters}`;
+}
+
+function buildCard(e, q) {
+  const color    = typeColor(e.type);
+  const descHtml = highlight(mdInline(e.description), q);
+  const titleHtml= highlight(mdInline(e.title), q);
+  const visibleTags = e.tags.filter(t => t !== 'new');
+
+  const tagHtml = visibleTags.map(t => {
+    const c = TAG_COLORS[t];
+    return `<span class="tag${c ? ' tc' : ''}${S.tag===t?' active':''}" data-tag="${esc(t)}"${c ? ` style="--tc:${c}"` : ''}>${esc(t)}</span>`;
+  }).join('');
+
+  const infoHtml = [
+    e.format ? `<span>${esc(e.format)}</span>` : '',
+    e.price  ? `<span>${esc(e.price)}</span>`  : '',
+  ].filter(Boolean).join('');
+
+  const linksHtml = e.links.map(l =>
+    `<a href="${esc(l.url)}" target="_blank" rel="noopener">${mdInline(l.text)}</a>`
+  ).join('');
+
+  return `<div class="card${e.upcoming?' is-upcoming':''}">
+    <div class="card-top">
+      <span class="type-badge" style="background:${color}">${esc(e.type)}</span>
+      ${e.isNew  ? '<span class="new-badge">New</span>' : ''}
+      ${e.upcoming ? '<span class="upcoming-label">Upcoming</span>' : ''}
+      <span class="card-date">${esc(e.dateRaw)}</span>
+    </div>
+    <div class="card-title">${titleHtml}</div>
+    ${infoHtml  ? `<div class="card-info">${infoHtml}</div>` : ''}
+    ${e.description ? `<div class="card-desc">${descHtml}</div>` : ''}
+    ${tagHtml   ? `<div class="card-tags">${tagHtml}</div>` : ''}
+    ${linksHtml ? `<div class="card-links">${linksHtml}</div>` : ''}
+  </div>`;
+}
+
+function renderSources() {
+  const { intro, groups } = S.sources;
+  document.getElementById('result-count').textContent = `${groups.length} sources`;
+  document.getElementById('grid').innerHTML = groups.map(g => `
+    <div class="card">
+      <div class="card-title">${esc(g.title)}</div>
+      <div class="card-links" style="flex-direction:column;gap:6px;padding-top:0;border-top:none">
+        ${g.links.map(l => `
+          <span>
+            <a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.text)}</a>
+            ${l.desc ? `<span style="display:block;font-size:11px;color:var(--muted);margin-top:1px">${esc(l.desc)}</span>` : ''}
+          </span>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function renderGrid() {
+  if (S.view === 'sources') { renderSources(); return; }
+
+  const results = getFiltered();
+  const q = S.search.trim();
+  const total = S.entries.length;
+
+  document.getElementById('result-count').textContent =
+    results.length === total
+      ? `${total} entries`
+      : `${results.length} of ${total}`;
+
+  const grid = document.getElementById('grid');
+  if (!results.length) {
+    grid.innerHTML = `<div class="no-results">
+      <strong>No entries found</strong>
+      Try adjusting your filters or search term.
+    </div>`;
+    return;
+  }
+  grid.innerHTML = results.map(e => buildCard(e, q)).join('');
+}
+
+function refresh() {
+  buildFilters();
+  renderGrid();
+}
+
+// ── Events ───────────────────────────────────────────────────────────────────
+function wireEvents() {
+  // Filter pills (event delegation on container)
+  document.getElementById('filters').addEventListener('click', ev => {
+    const pill = ev.target.closest('.pill');
+    if (!pill) return;
+    if (pill.dataset.view) {
+      S.view = pill.dataset.view;
+    } else if (pill.dataset.type) {
+      const t = pill.dataset.type;
+      S.types.has(t) ? S.types.delete(t) : S.types.add(t);
+    } else if (pill.dataset.month) {
+      const m = pill.dataset.month;
+      S.months.has(m) ? S.months.delete(m) : S.months.add(m);
+    } else if (pill.dataset.tag !== undefined) {
+      const t = pill.dataset.tag;
+      S.tag = S.tag === t ? null : t;
+    }
+    refresh();
+  });
+
+  // Tag chips on cards (event delegation) — refresh() so filter bar reflects active tag
+  document.getElementById('grid').addEventListener('click', ev => {
+    const tag = ev.target.closest('.tag');
+    if (!tag) return;
+    S.tag = S.tag === tag.dataset.tag ? null : tag.dataset.tag;
+    refresh();
+  });
+
+  // Search
+  document.getElementById('search').addEventListener('input', ev => {
+    S.search = ev.target.value;
+    renderGrid();
+  });
+}
+
+// ── Bootstrap ────────────────────────────────────────────────────────────────
+function initCalendar(text) {
+  const parsed = parseCalendar(text);
+  S.entries = parsed.entries;
+  S.sources = parsed.sources;
+  wireEvents();
+  refresh();
+}
+
+function loadFile(file) {
+  const reader = new FileReader();
+  reader.onload = ev => initCalendar(ev.target.result);
+  reader.readAsText(file);
+}
+
+// ── Inline data ──────────────────────────────────────────────────────────────
+const INLINE_MD = "# Graphic Design Digest\n\n> Events, releases, and projects of note \u00b7 Chronological from 01\u00b726 \u00b7 UK-wide (Sheffield, Leeds, Manchester, Liverpool + London) \u00b7 Newest first\n\n---\n\n## Contents\n\n[Upcoming \u2014 Mar\u00b726](#upcoming--mar26) \u00b7 [2026](#2026) \u2014 [Feb](#feb26) \u00b7 [Jan](#jan26) \u00b7 [Sources](#sources)\n\n---\n\n## Upcoming \u2014 Mar\u00b726\n\n*Soonest first*\n\n---\n\n### 03\u00b726 \u00b7 Exhibition \u00b7 Deutsche B\u00f6rse Photography Foundation Prize 2026\n*Type: exhibition \u00b7 Format: in-person \u00b7 Price: \u00a310 / \u00a37 conc \u00b7 Tags: `photography` `prize` `london` `annual`*\n\nAnnual photography prize exhibition, now in its 30th year, opening 6 March at The Photographers' Gallery, London and running to 7 June 2026. The 2026 shortlist \u2014 Jane Evelyn Atwood, Weronika G\u0119sicka, Amak Mahmoodian, and Rene Mati\u0107 \u2014 explores truth, memory, and identity through documentary, installation, and conceptual photography. Winner of the \u00a330,000 prize announced 14 May.\n\n[The Photographers' Gallery](https://thephotographersgallery.org.uk/whats-on/deutsche-borse-photography-foundation-prize-2026)\n\n---\n\n### 03\u00b726 \u00b7 Event \u00b7 TypoCircle: Supercondensed\n*Type: event \u00b7 Format: in-person \u00b7 Price: \u00a310 members / \u00a315 public \u00b7 Tags: `typography` `talk` `london` `annual`*\n\nTypoCircle's full-day mini-festival format, held 6 March at WMH&I, London. Supercondensed packs multiple speakers and shorter sessions into one day \u2014 broader scope than the regular monthly talks, with previous editions covering type design, art direction, and studio practice. Tickets via Eventbrite.\n\n[The Typographic Circle](https://www.eventbrite.co.uk/e/typocircle-supercondensed-tickets-1982774768708)\n\n---\n\n### 03\u00b726 \u00b7 Exhibition \u00b7 Design Festival North 2026 \u2014 Leeds\n*Type: exhibition \u00b7 Format: in-person \u00b7 Price: Free (trade reg) \u00b7 Tags: `interior` `product` `leeds` `regional`*\n\nDesign Festival North kicks off its 2026 tour in Leeds on 11 March, gathering design brands and suppliers in a show format aimed at interior designers and architects. Followed by Birmingham (17 June) and Liverpool (8 July). Free to attend with trade registration.\n\n[Design Festival North](https://www.designsocialnorth.co.uk)\n\n---\n\n### 03\u00b726 \u00b7 Exhibition \u00b7 David Hockney: A Year in Normandie and Some Other Thoughts about Painting\n*Type: exhibition \u00b7 Format: in-person \u00b7 Price: Free \u00b7 Tags: `digital` `painting` `free` `london`*\n\nFree exhibition opening 12 March at Serpentine North, running to 23 August 2026. Centrepiece is *A Year in Normandie* (2020\u201321), a ninety-metre iPad-drawn frieze capturing the seasons at his Normandy studio \u2014 shown in London for the first time. Accompanied by *Moon Room* and ten new still lifes and portraits.\n\n[Serpentine Galleries](https://www.serpentinegalleries.org/whats-on/david-hockney-a-year-in-normandie-and-some-other-thoughts-about-painting-exhibition-serpentine-galleries/)\n\n---\n\n### 03\u00b726 \u00b7 Exhibition \u00b7 Photo North Festival #7\n*Type: exhibition \u00b7 Format: in-person \u00b7 Price: From \u00a312 \u00b7 Tags: `photography` `festival` `leeds` `regional`*\n\nThe seventh Photo North Festival, 13\u201315 March at Carriageworks Theatre, Leeds. Annual festival committed to photography's capacity for social documentary \u2014 a strong northern platform for photographic image-making and its overlap with editorial and graphic design practice.\n\n[Photo North](https://www.carriageworks.co.uk)\n\n---\n\n### 03\u00b726 \u00b7 Event \u00b7 St Bride Foundation: Give Way to Design\n*Type: event \u00b7 Format: in-person \u00b7 Price: \u00a39 / \u00a312 / \u00a314 (door \u00a316) \u00b7 Tags: `signage` `wayfinding` `talk` `london`*\n\nFilm screening and talk, 19 March at St Bride Foundation, London. *Give Way to Design* is a documentary tracing UK road signage from Roman milestones to the present day, celebrating the enduring legacy of Jock Kinneir and Margaret Calvert. Introduced by director Patricio Orozo. Tickets end 4pm on the day.\n\n[St Bride Foundation](https://sbf.org.uk/whats-on/view/give-way-to-design/)\n\n---\n\n### 03\u00b726 \u00b7 Exhibition \u00b7 On The Line: 100 Years of Strikes & Solidarity\n*Type: exhibition \u00b7 Format: in-person \u00b7 Price: Free \u00b7 Tags: `poster` `print` `protest` `manchester` `regional`*\n\nOpens 21 March at People's History Museum, Manchester, running to 1 November 2026. Marks the centenary of the 1926 General Strike through banners, posters, photography, and everyday ephemera \u2014 including work by The Poster Collective, Paddington Printshop, and See Red Women's Workshop. A strong case study in graphic design as political communication.\n\n[People's History Museum](https://phm.org.uk/exhibitions/on-the-line/)\n\n---\n\n## 2026\n\n---\n\n### Feb\u00b726\n\n---\n\n### 02\u00b726 \u00b7 Event \u00b7 TypoCircle: Trails Will Blaze\n*Type: event \u00b7 Format: in-person \u00b7 Price: TBC \u00b7 Tags: `motion` `moving-image` `experimental` `talk` `london` `new`*\n\nMonthly TypoCircle talk, 26 February at St Bride Foundation, London. Yannis Konstantinidis (Nomint, Emmy-winning animation director) and Jess Oudot (BBC Creative) break down the production of BBC's Winter Olympics title sequence \u2014 700 3D-printed athlete models, 14 combustion techniques, no CGI fire. The talk addresses why craft-driven filmmaking and the human touch remain irreplaceable in an era of AI-generated imagery.\n\n[The Typographic Circle](https://www.eventbrite.co.uk/e/typocircle-presents-trails-will-blaze-tickets-1983072200334)\n\n---\n\n### 02\u00b726 \u00b7 Event \u00b7 St Bride Foundation: Letterpress Poster Printing Workshop\n*Type: event \u00b7 Format: in-person \u00b7 Price: \u00a3120 \u00b7 Tags: `letterpress` `printmaking` `typography` `london` `new`*\n\nFull-day hands-on workshop, 26 February 10:30am\u20134:00pm at St Bride Foundation, London. Participants compose and lock up wood type by hand, then pull letterpress prints on the Foundation's historic presses. Small class sizes with one-to-one guidance; all materials provided. One of St Bride's flagship practical sessions \u2014 directly relevant for students interested in typographic production and print history.\n\n[St Bride Foundation](https://sbf.org.uk/whats-on/view/letterpress-poster-printing-workshop-3/)\n\n---\n\n### 02\u00b726 \u00b7 Event \u00b7 Letterform Archive: The History and Craft of French Sign Painting\n*Type: event \u00b7 Format: online \u00b7 Price: Free \u2013 $23 \u00b7 Tags: `lettering` `signpainting` `online` `letterform` `new`*\n\nOnline talk (Zoom) celebrating the release of *Lettres D\u00e9coratives*, exploring stylistic features of French sign painter alphabets and their historical and international context. Streamed 25 February 2026, 12:00pm\u20131:30pm PT / 8:00\u20139:30pm GMT. Accessible globally; recording typically available to Letterform Archive members.\n\n[Letterform Archive](https://letterformarchive.org/events/)\n\n---\n\n### 02\u00b726 \u00b7 Event \u00b7 St Bride Foundation: Gothic vs Modern\n*Type: event \u00b7 Format: in-person \u00b7 Price: \u00a39 / \u00a312 / \u00a314 \u00b7 Tags: `typography` `history` `talk` `london` `new`*\n\nTalk by Paul Stirton, 24 February at St Bride Foundation, London. Explores the clash between two competing visions of letterforms in German culture \u2014 tracing from Jan Tschichold's pivotal 1922 meeting with Rudolf Koch (designer of foundational Gothic typefaces) through the opposing views of modernity that shaped twentieth-century type design.\n\n[St Bride Foundation](https://sbf.org.uk/whats-on/view/gothic-vs-modern/)\n\n---\n\n### 02\u00b726 \u00b7 Exhibition \u00b7 Plantation \u2014 Rehana Zaman\n*Type: exhibition \u00b7 Format: in-person \u00b7 Price: Free \u00b7 Tags: `moving-image` `land` `sheffield` `regional` `new`*\n\nSolo exhibition by Rehana Zaman, opening 20 February at Site Gallery, Sheffield, running to 17 May 2026. Explores land use, ownership, and environmental collapse through the experiences of agricultural workers \u2014 presented in moving image and performance. Site Gallery is a two-minute walk from Sheffield station, next door to the Showroom cinema.\n\n[Site Gallery](https://www.sitegallery.org/whats-on/)\n\n---\n\n### 02\u00b726 \u00b7 Typeface \u00b7 KH Einheit\n*Type: typeface \u00b7 Tags: `typography` `monospaced` `identity` `new`*\n\nNew release from KH Type, the retail foundry launched by Stockholm and New York brand agency Kurppa Hosk. A modular monospaced typeface built on a strict grid, available in three distinct column styles \u2014 narrow, standard, and wide. Designed for brand systems requiring technical precision alongside strong visual character; sits alongside KH Teka and KH Giga in the growing KH Type catalog.\n\n[KH Type](https://khtype.com/)\n\n---\n\n### 02\u00b726 \u00b7 Typeface \u00b7 Markelius Sans\n*Type: typeface \u00b7 Tags: `typography` `history` `identity` `new`*\n\nNew release from Stockholm foundry Letters from Sweden, founded by G\u00f6ran S\u00f6derstr\u00f6m and Stefania Malmsten. Drawn from hand-written interpretations of Helvetica discovered in the archives of Folkets Hus at Norra Bantorget \u2014 the Stockholm trades union venue co-designed by Sven Markelius (1960). A strong example of how institutional archives can drive a contemporary typeface release.\n\n[Letters from Sweden](https://lettersfromsweden.se/fonts/)\n\n---\n\n### 02\u00b726 \u00b7 Profile \u00b7 Genie Wu\n*Type: profile \u00b7 Tags: `identity` `type` `code` `taiwan` `new`*\n\nTaipei-born, Pasadena-trained designer recently graduated from ArtCenter College of Design, whose work merges analogue craft and code \u2014 building visual identities using InDesign, Illustrator, Figma, and Glyphs while drawing on Renaissance proportion and cross-cultural duality. Young Ones TDC 2025 winner and Communication Arts Design 2025 shortlistee, named in It's Nice That's Ones to Watch 2026 for work that creates \"entry points to deeper stories.\" Featured in It's Nice That, 18 February 2026.\n\n[geniewu.info](https://geniewu.info) \u00b7 [Behance](https://www.behance.net/geniewutai922a) \u00b7 [Feature: It's Nice That](https://www.itsnicethat.com/articles/genie-wu-graphic-design-ones-to-watch-180226)\n\n---\n\n### 02\u00b726 \u00b7 Profile \u00b7 Oliver Munday\n*Type: profile \u00b7 Tags: `editorial` `book-covers` `illustration` `new-york` `new`*\n\nArt director and book cover designer currently at Doubleday, formerly at Knopf, Farrar Straus & Giroux, and The Atlantic \u2014 responsible for covers including Colson Whitehead's *The Underground Railroad*, Elif Batuman's *The Idiot*, and Nathan Hill's *The Nix*. Has published illustration and social design work in The New Yorker, Time, and the NYT. His debut short story collection *Head of Household* (Simon & Schuster, 17 Feb 2026) explores modern fatherhood; the Scratching the Surface episode explores why a graphic designer writes fiction, and where the limits of design practice lie. Featured in Scratching the Surface, 18 February 2026.\n\n[omunday.com](https://omunday.com) \u00b7 [Podcast: Scratching the Surface](https://surfacepodcast.substack.com/p/oliver-munday-on-the-limits-of-graphic)\n\n---\n\n### 02\u00b726 \u00b7 Tool \u00b7 Adobe Photoshop 2026\n*Type: tool \u00b7 Tags: `tool` `AI` `photoshop` `adobe` `new`*\n\nMajor 2026 update centres on AI integration: Topaz Gigapixel upscaling to 56 megapixels, AI-based denoise, a new Harmonize tool for composite blending, and a Color and Vibrance adjustment layer. Generative Fill adds partner models including Flux.1. Agentic AI features introduced in Photoshop Web.\n\n[Webdesignerdepot](https://webdesignerdepot.com/exciting-new-tools-for-designers-february-2026/)\n\n---\n\n### 02\u00b726 \u00b7 Typeface \u00b7 Brikka\n*Type: typeface \u00b7 Tags: `display` `debut` `brutalist` `new`*\n\nReleased February 17 by Brutal Types. Details emerging \u2014 watch Fonts In Use and TypeCache for specimen coverage.\n\n[TypeCache](https://typecache.com/news/)\n\n---\n\n### 02\u00b726 \u00b7 Project \u00b7 BBC Creative \u00d7 Nomint: Trails Will Blaze\n*Type: project \u00b7 Tags: `moving-image` `experimental` `motion` `commercial` `new`*\n\nTitle sequence for BBC's Milano Cortina 2026 Winter Olympics coverage, directed by Yannis Konstantinidis through London studio Nomint for BBC Creative. Built entirely from practical stop motion \u2014 700 individually 3D-printed athlete models photographed against miniature mountain sets, with 14 separate combustion techniques developed to capture real fire frame by frame. No CGI fire was used anywhere in the production. Widely cited in the design press as a landmark argument for craft-driven filmmaking in the age of AI; scored by a live BBC Symphony Orchestra recording of Verdi's Requiem.\n\n[Creative Review](https://www.creativereview.co.uk/bbc-creative-trailer-2026-winter-olympic-games/) \u00b7 [LBBOnline: Behind the Work](https://lbbonline.com/news/bbc-creative-nomint-olympics-animation-behind-the-work)\n\n---\n\n### 02\u00b726 \u00b7 Profile \u00b7 Ward Goes\n*Type: profile \u00b7 Tags: `typography` `materiality` `amsterdam` `identity`*\n\nAmsterdam-based designer and researcher whose practice moves between commissioned graphic work and material experimentation \u2014 aluminium signage, self-published books, screenprinted multiples. Clients include Issey Miyake, Chanel, and Design Academy Eindhoven, where he teaches. Recent solo show *Literally Anything* (Alley Space, Rotterdam) pushed type into three dimensions. Featured in It's Nice That, 10 February 2026.\n\n[wardgoes.com](https://wardgoes.com) \u00b7 [@wardgoes](https://www.instagram.com/wardgoes/) \u00b7 [Feature: It's Nice That](https://www.itsnicethat.com/articles/ward-goes-graphic-design-discover-100226)\n\n---\n\n### 02\u00b726 \u00b7 Event \u00b7 St Bride Foundation: Independent Magazines Evening\n*Type: event \u00b7 Format: in-person \u00b7 Price: \u00a39 / \u00a312 / \u00a314 \u00b7 Tags: `magazines` `independent` `publishing` `london`*\n\nEvening of readings at St Bride Foundation, 5 February, featuring four of Britain's most distinctive independent magazines \u2014 from small-run publications and worker-owned journalist cooperatives to email newsletters. Presents magazine voices directly from page to stage.\n\n[St Bride Foundation](https://sbf.org.uk/whats-on/)\n\n---\n\n### 02\u00b726 \u00b7 Profile \u00b7 Sean Thomas\n*Type: profile \u00b7 Tags: `branding` `sign-painting` `identity` `london`*\n\nLondon-trained, Milan-based designer whose branding practice is rooted in sign painting \u2014 twelve years of murals and hand-painted signage across the UK before formalising into identity work for food brands (Dom's Subs, Forza Win, Jupiter Burger) and fashion clients including Carhartt WIP. Graduate of Camberwell College of Arts. Argues that analogue craft is only becoming more valuable as AI proliferates. Featured in It's Nice That, 5 February 2026.\n\n[seanthomas.work](https://seanthomas.work) \u00b7 [@sean.a.thomas](https://www.instagram.com/sean.a.thomas/) \u00b7 [Feature: It's Nice That](https://www.itsnicethat.com/articles/sean-thomas-graphic-design-discover-050226)\n\n---\n\n### 02\u00b726 \u00b7 Profile \u00b7 work-form\n*Type: profile \u00b7 Tags: `participatory` `place-making` `community` `london`*\n\nLondon studio founded by Charlie Abbott, Jake Hopwood, and Alex Hough, whose practice is built on immersion into communities before design begins \u2014 leading to participatory processes across visual identities, books, exhibitions, and wayfinding. All three also teach across London institutions, treating studio and classroom as a continuous feedback loop. Recent exhibition identity for *The In Crowd: Mod Fashion and Style 1958\u20131966* at Brighton Museum shows the studio's depth of typographic research. Featured in It's Nice That, 4 February 2026.\n\n[work-form.co.uk](https://www.work-form.co.uk) \u00b7 [Feature: It's Nice That](https://www.itsnicethat.com/articles/work-form-graphic-design-discover-040226)\n\n---\n\n### 02\u00b726 \u00b7 Typeface \u00b7 Buttered Crumpet\n*Type: typeface \u00b7 Tags: `bespoke` `commission` `aardman` `display`*\n\nBespoke typeface designed by Jamie Clark for Aardman's Wallace & Gromit, as part of a wider brand identity project by Studio Griggs. Drawn from Oswald Cooper's Cooper Black but softer and more hand-crafted \u2014 serifs shaped to resemble loaves of bread. Not commercially available; a strong example of purposeful custom type in a branded context.\n\n[Creative Boom](https://www.creativeboom.com/resources/fonts-for-february-2026/)\n\n---\n\n### 02\u00b726 \u00b7 Typeface \u00b7 Veloce\n*Type: typeface \u00b7 Tags: `sans-serif` `variable` `multilingual` `debut`*\n\nDebut release by Rob Andrews. Began as a single-weight studio font and grew into a full family \u2014 clear and neutral without feeling anonymous. Exceptional language coverage including Pinyin Chinese and Nigerian and International African alphabet characters alongside Cyrillic, Greek, and Vietnamese.\n\n[Creative Boom](https://www.creativeboom.com/resources/fonts-for-february-2026/)\n\n---\n\n### 02\u00b726 \u00b7 Magazine \u00b7 Wallpaper* \u2014 February 2026 Collector's Edition\n*Type: magazine \u00b7 Tags: `annual` `awards` `wallpaper` `design`*\n\nAnnual Design Awards issue, showcasing the best projects, products, and people across all creative disciplines. The collector's edition serves as a benchmark publication for the year's design output \u2014 widely stocked in UK newsagents and design bookshops.\n\n[Wallpaper*](https://www.wallpaper.com)\n\n---\n\n### 02\u00b726 \u00b7 Exhibition \u00b7 PLATFORM: Simone Brewster\n*Type: exhibition \u00b7 Format: in-person \u00b7 Price: Free \u00b7 Tags: `exhibition` `contemporary` `london` `identity`*\n\nSecond edition of the Design Museum London's annual PLATFORM series. Presents the work of designer Simone Brewster, whose practice spans furniture, objects, and spatial design informed by cultural memory and material exploration.\n\n[Design Museum](https://designmuseum.org/exhibitions)\n\n---\n\n### Jan\u00b726\n\n---\n\n### 01\u00b726 \u00b7 Exhibition \u00b7 New Contemporaries 2026\n*Type: exhibition \u00b7 Format: in-person \u00b7 Price: Free \u00b7 Tags: `emerging` `london` `painting` `photography`*\n\nOpened 30 January at South London Gallery, running through 12 April 2026. Features 26 emerging and early-career UK artists across painting, sculpture, installation, photography, and moving image. Themes span climate, gentrification, memory, and identity. Annual survey of the most compelling new voices in UK art and design.\n\n[South London Gallery](https://www.southlondongallery.org)\n\n---\n\n### 01\u00b726 \u00b7 Event \u00b7 TypoCircle: Simon Dixon\n*Type: event \u00b7 Format: in-person \u00b7 Price: \u00a310 members / \u00a315 public \u00b7 Tags: `typography` `talk` `london` `branding`*\n\nMonthly TypoCircle talk held 29 January at St Bride Foundation, London. Simon Dixon of DixonBaxi spoke on the \"messy middle of creativity\" \u2014 the working space between initial concept and finished outcome, where most of a project's real thinking happens.\n\n[The Typographic Circle](https://www.typocircle.com)\n\n---\n\n### 01\u00b726 \u00b7 Profile \u00b7 Michael Bierut\n*Type: profile \u00b7 Tags: `identity` `branding` `criticality` `pentagram`*\n\nPentagram partner since 1990 and one of the most recognised voices in American graphic design \u2014 responsible for identity work for Hillary Clinton's 2016 presidential campaign, MIT Media Lab, Mastercard, and the Yale School of Architecture. Also a prolific writer and co-founder of the design blog Design Observer. At Nicer Tuesdays NY (January 2026), he spoke in career retrospective with It's Nice That's Elizabeth Goodspeed about working across clients, collaboration, and the long view of a design practice. Featured in It's Nice That, 27 January 2026.\n\n[pentagram.com](https://www.pentagram.com/about/michael-bierut) \u00b7 [Feature: It's Nice That](https://www.itsnicethat.com/articles/nicer-tuesdays-new-york-september-michael-bierut-270126)\n\n---\n\n### 01\u00b726 \u00b7 Profile \u00b7 swamp.center\n*Type: profile \u00b7 Tags: `self-publishing` `zine` `poster` `berlin`*\n\nBerlin-based collective founded in 2025 by Karolina Pietrzyk and Tobias Wenig \u2014 a self-described publishing house, label, and bookshop running simultaneously, releasing zines, books, and posters with collaborators across European cultural institutions and music festivals. Visual language drawn from nature: swamp textures, twigs, algae, retro ASCII art, and found materials scanned and rebuilt as identity. Recent clients include Arsena\u0142 Gallery, Bia\u0142ystok, and Baltic Contemporary Gallery. Featured in It's Nice That, 19 January 2026.\n\n[karolinapietrzyk.info](https://karolinapietrzyk.info) \u00b7 [Feature: It's Nice That](https://www.itsnicethat.com/articles/karolina-pietrzyk-tobias-wenig-swamp-collective-graphic-design-discover-190126)\n\n---\n\n### 01\u00b726 \u00b7 Exhibition \u00b7 Condo London 2026\n*Type: exhibition \u00b7 Format: in-person \u00b7 Price: Free \u00b7 Tags: `contemporary` `collaborative` `city-wide` `london`*\n\nRan 17 January \u2013 14 February across 50 galleries in 23 London venues, from Soho and the West End to South and East London. Condo is a city-wide collaborative programme in which London galleries host international peers, sharing space and audiences \u2014 neither art fair nor festival, but a sustained month-long network of shows.\n\n[Condo London](https://www.condocomplex.org)\n\n---\n\n### 01\u00b726 \u00b7 Article \u00b7 The Graphic Trends You'll Want to Bookmark for 2026\n*Type: article \u00b7 Tags: `trends` `editorial` `mixed-media` `AI`*\n\nIt's Nice That's annual graphic design trends forecast, published 12 January. Covers five areas \u2014 typography, logo design, print, editorial, and image production \u2014 framing 2026 as a year of mixed-media resurgence. Argues that as AI image generators continue to struggle with textured and layered aesthetics, \"an overworked, scanned or heavily textured approach to image-making will only grow in 2026.\"\n\n[It's Nice That](https://www.itsnicethat.com/features/forward-thinking-graphic-trends-2026-graphic-design-120126)\n\n---\n\n### 01\u00b726 \u00b7 Profile \u00b7 Louis Garella / Studio Garella\n*Type: profile \u00b7 Tags: `visual-art` `spatial` `editorial` `paris`*\n\nParis-based designer originally from Aix-en-Provence whose hybrid practice sits across visual arts, graphic design, and spatial design \u2014 building identities, editorial work, photography, motion, and 3D from the same visual logic. Describes his process as \"a constant back-and-forth between digital and print.\" Also produces riso prints independently at Quintal Atelier. Featured in It's Nice That, 7 January 2026.\n\n[louis-garella.com](https://louis-garella.com) \u00b7 [Feature: It's Nice That](https://www.itsnicethat.com/articles/louis-garella-graphic-design-discover-070126)\n\n---\n\n### 01\u00b726 \u00b7 Book \u00b7 Alphabet Logo\n*Type: book \u00b7 Tags: `logo` `typography` `identity` `counter-print`*\n\nNew title from Counter-Print released 6 January, collecting logo and identity designs organised through the alphabet. Follows the studio's established format for categorising visual identity work \u2014 a useful addition alongside *Abstract Logo*, *Monogram Logo*, and *Animal Logo* in the series.\n\n[Counter-Print](https://www.counter-print.co.uk)\n\n---\n\n### 01\u00b726 \u00b7 Book \u00b7 Big Type \u2014 Reprint\n*Type: book \u00b7 Tags: `typography` `reprint` `counter-print`*\n\nReprint of the popular *Big Type* title, released through Counter-Print on 6 January. Collects large-scale typographic design across print, environmental, and editorial contexts \u2014 a recurring reference for type-led design practice.\n\n[Counter-Print](https://www.counter-print.co.uk)\n\n---\n\n### 01\u00b726 \u00b7 Book \u00b7 Fedrigoni 365 \u2014 2026 Edition\n*Type: book \u00b7 Tags: `paper` `annual` `typography` `counter-print`*\n\nAnnual paper swatch publication from Fedrigoni, stocked and released through Counter-Print on 6 January. Each edition showcases the Italian paper manufacturer's range through typographic and graphic treatments \u2014 as much a design object as a reference tool. A perennial in UK design studios.\n\n[Counter-Print](https://www.counter-print.co.uk)\n\n---\n\n### 01\u00b726 \u00b7 Typeface \u00b7 Amperspam 2.0\n*Type: typeface \u00b7 Tags: `novelty` `charity` `open-source`*\n\nSecond edition of agency Allen & Gerritsen's fundraising type project \u2014 three new fonts handcrafted from Spam (the tinned meat): *Amperspam Grilled Bold*, *Nibbled Neue*, and *Out The Can*. Proceeds support local food banks; the 2025 edition raised over $1,000 for Greater Boston Food Bank and Philabundance.\n\n[Creative Boom](https://www.creativeboom.com/resources/the-best-new-typefaces-for-january-2026/)\n\n---\n\n### 01\u00b726 \u00b7 Typeface \u00b7 Sets Arabic & Sets Grotesk\n*Type: typeface \u00b7 Tags: `arabic` `bilingual` `naskh` `brutalist`*\n\nDebut release from Dogray Type Foundry, designed by Sahar. A bilingual Arabic Naskh and Latin Grotesk superfamily \u2014 nine weights across four optical sizes. Sets Arabic fuses Brutalist utility with calligraphic spirit; the large optical size shifts character significantly from the text cuts.\n\n[Creative Boom](https://www.creativeboom.com/resources/the-best-new-typefaces-for-january-2026/)\n\n---\n\n### 01\u00b726 \u00b7 Typeface \u00b7 B\u00e1rur\n*Type: typeface \u00b7 Tags: `display` `debut` `branding`*\n\nDebut release from Mindt Studio. A fluid, expressive display typeface for large-scale applications \u2014 logos, editorial headlines, packaging, and posters. Legible at small sizes but most alive at scale; tactile and unmistakably handcrafted in character.\n\n[Creative Boom](https://www.creativeboom.com/resources/the-best-new-typefaces-for-january-2026/)\n\n---\n\n### 01\u00b726 \u00b7 Exhibition \u00b7 Harland Miller\n*Type: exhibition \u00b7 Format: in-person \u00b7 Price: Free \u00b7 Tags: `typography` `painting` `free` `london`*\n\nFree display at the Design Museum, London, running 10 December 2025 \u2013 25 January 2026. Miller's monumental Letter Paintings treat graphic design as both source material and structure \u2014 saturated colour fields and bespoke typefaces operating at architectural scale. Co-curated with museum director Tim Marlow; works on paper shown alongside large canvases.\n\n[Design Museum](https://designmuseum.org/exhibitions)\n\n---\n\n*34 entries archived \u00b7 7 upcoming \u00b7 exhibitions \u00b7 events \u00b7 profiles \u00b7 articles \u00b7 typefaces \u00b7 tools \u00b7 projects \u00b7 books \u00b7 magazines*\n\n---\n\n## Sources\n\nDesign news and critical writing used to populate this calendar.\n\n**Design news & features**\n[It's Nice That](https://www.itsnicethat.com) \u00b7 [Creative Boom](https://www.creativeboom.com) \u00b7 [Eye Magazine](https://eyemagazine.com) \u00b7 [Dezeen Design](https://www.dezeen.com/design) \u00b7 [Slanted](https://www.slanted.de) \u00b7 [Design Week](https://www.designweek.co.uk) \u00b7 [Wallpaper*](https://www.wallpaper.com)\n\n**Typography**\n[TypeCache](https://typecache.com/news) \u00b7 [Fonts In Use](https://fontsinuse.com) \u00b7 [Google Fonts](https://fonts.google.com/knowledge) \u00b7 [Adobe Fonts](https://fonts.adobe.com) \u00b7 [Typotheque](https://www.typotheque.com/blog) \u00b7 [Are.na](https://www.are.na)\n\n**Books & publishing**\n[Counter-Print](https://www.counter-print.co.uk)\n\n**Events & talks**\n[Typographic Circle](https://www.typocircle.com) \u00b7 [St Bride Foundation](https://sbf.org.uk/whats-on) \u00b7 [Letterform Archive](https://letterformarchive.org/events) \u00b7 [Type@Cooper](https://cooper.edu/art/type-cooper) \u00b7 [Type Directors Club](https://tdc.org) \u00b7 [ISTD](https://www.istd.org.uk)\n\n**London exhibitions**\n[Design Museum](https://designmuseum.org/exhibitions) \u00b7 [V&A](https://www.vam.ac.uk/whats-on) \u00b7 [The Photographers' Gallery](https://thephotographersgallery.org.uk) \u00b7 [Serpentine Galleries](https://www.serpentinegalleries.org) \u00b7 [South London Gallery](https://www.southlondongallery.org) \u00b7 [Barbican](https://www.barbican.org.uk/whats-on)\n\n**Sheffield**\n[Site Gallery](https://www.sitegallery.org) \u00b7 [Sheffield Museums](https://www.sheffieldmuseums.org.uk/whats-on) \u00b7 [S1 Artspace](https://s1artspace.org) \u00b7 [Bloc Projects](https://blocprojects.org.uk) \u00b7 [SHU Gallery](https://gallery.shu.ac.uk) \u00b7 [Yorkshire Artspace](https://yorkshireartspace.org)\n\n**North**\n[Creative Tourist](https://www.creativetourist.com/exhibitions) \u00b7 [People's History Museum](https://phm.org.uk/whats-on) \u00b7 [FACT Liverpool](https://www.fact.co.uk/whats-on) \u00b7 [Leeds Art Gallery](https://museumsandgalleries.leeds.gov.uk/whats-on) \u00b7 [Photo North](https://www.photonorth.co.uk) \u00b7 [Design Festival North](https://www.designsocialnorth.co.uk)\n\n**Podcasts**\n[Scratching the Surface](https://scratchingthesurface.fm) \u2014 critical writing, theory, and history (Jarrett Fuller) \u00b7 [Design Matters](https://www.designmattersmedia.com) \u2014 long-running interview series (Debbie Millman) \u00b7 [Working File](https://www.workingfile.co.uk) \u2014 UK studio practice and process \u00b7 [Nice to Meet You](https://www.itsnicethat.com/tags/nice-to-meet-you) \u2014 It's Nice That's practitioner interviews\n\n**Video**\n[Letterform Archive](https://www.youtube.com/@LetterformArchive) \u2014 free type and lettering lectures \u00b7 [Type@Cooper](https://www.youtube.com/@TypeCooper) \u2014 free NYC typography lecture archive \u00b7 [The Futur](https://www.youtube.com/@TheFutur) \u2014 design practice and creative business (Chris Do) \u00b7 [ATypI](https://www.youtube.com/@ATypI) \u2014 international typography conference recordings\n";
+initCalendar(INLINE_MD);
+</script>
+</body>
+</html>
