@@ -497,14 +497,18 @@ function buildCard(e, q) {
 const SKIP_IMG = /(logo|icon|favicon|placeholder|default|fallback|social[-_])/i;
 
 function setupLazyImages() {
-  const cards = document.querySelectorAll('.card-img[data-fetch-url]');
+  // Observe parent .card elements — display:none elements have no layout box
+  // so IntersectionObserver never fires on them directly.
+  const cards = document.querySelectorAll('.card:has(.card-img[data-fetch-url])');
   if (!cards.length) return;
 
   const observer = new IntersectionObserver(async entries => {
     for (const entry of entries) {
       if (!entry.isIntersecting) continue;
-      const el = entry.target;
-      observer.unobserve(el);
+      const card = entry.target;
+      observer.unobserve(card);
+      const el = card.querySelector('.card-img[data-fetch-url]');
+      if (!el) continue;
       const url = el.dataset.fetchUrl;
       try {
         const res  = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`);
