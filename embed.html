@@ -509,6 +509,8 @@ async function fetchCardImage(el) {
       const res  = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`);
       const json = await res.json();
       imgUrl = json?.data?.image?.url || null;
+      // Force HTTPS to avoid mixed content warnings
+      if (imgUrl) imgUrl = imgUrl.replace(/^http:\/\//, 'https://');
       FETCHED_URLS.set(url, imgUrl);
     }
     // Skip generic images and images already shown on another card
