@@ -494,15 +494,26 @@ function buildCard(e, q) {
 }
 
 // ── Lazy og:image loader (runtime, via microlink.io) ─────────────────────────
-const SKIP_IMG = /(logo|icon|favicon|placeholder|default|fallback|social[-_])/i;
+const SKIP_IMG   = /(logo|icon|favicon|placeholder|default|fallback|social[-_])/i;
+const USED_IMGS  = new Set(); // prevent same image appearing on multiple cards
+const FETCHED_URLS = new Map(); // cache fetch results by source URL
 
 async function fetchCardImage(el) {
   const url = el.dataset.fetchUrl;
   try {
-    const res  = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`);
-    const json = await res.json();
-    const imgUrl = json?.data?.image?.url;
-    if (imgUrl && !SKIP_IMG.test(imgUrl)) {
+    // Reuse cached result if we've already fetched this source URL
+    let imgUrl;
+    if (FETCHED_URLS.has(url)) {
+      imgUrl = FETCHED_URLS.get(url);
+    } else {
+      const res  = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`);
+      const json = await res.json();
+      imgUrl = json?.data?.image?.url || null;
+      FETCHED_URLS.set(url, imgUrl);
+    }
+    // Skip generic images and images already shown on another card
+    if (imgUrl && !SKIP_IMG.test(imgUrl) && !USED_IMGS.has(imgUrl)) {
+      USED_IMGS.add(imgUrl);
       const img = el.querySelector('img');
       img.onload  = () => { el.style.display = ''; };
       img.onerror = () => { /* stays hidden */ };
