@@ -496,35 +496,24 @@ function buildCard(e, q) {
 // ── Lazy og:image loader (runtime, via microlink.io) ─────────────────────────
 const SKIP_IMG = /(logo|icon|favicon|placeholder|default|fallback|social[-_])/i;
 
-function setupLazyImages() {
-  // Observe parent .card elements — display:none elements have no layout box
-  // so IntersectionObserver never fires on them directly.
-  const cards = document.querySelectorAll('.card:has(.card-img[data-fetch-url])');
-  if (!cards.length) return;
-
-  const observer = new IntersectionObserver(async entries => {
-    for (const entry of entries) {
-      if (!entry.isIntersecting) continue;
-      const card = entry.target;
-      observer.unobserve(card);
-      const el = card.querySelector('.card-img[data-fetch-url]');
-      if (!el) continue;
-      const url = el.dataset.fetchUrl;
-      try {
-        const res  = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`);
-        const json = await res.json();
-        const imgUrl = json?.data?.image?.url;
-        if (imgUrl && !SKIP_IMG.test(imgUrl)) {
-          const img = el.querySelector('img');
-          img.onload  = () => { el.style.display = ''; };
-          img.onerror = () => { /* stays hidden */ };
-          img.src = imgUrl;
-        }
-      } catch (_) { /* stays hidden */ }
+async function fetchCardImage(el) {
+  const url = el.dataset.fetchUrl;
+  try {
+    const res  = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`);
+    const json = await res.json();
+    const imgUrl = json?.data?.image?.url;
+    if (imgUrl && !SKIP_IMG.test(imgUrl)) {
+      const img = el.querySelector('img');
+      img.onload  = () => { el.style.display = ''; };
+      img.onerror = () => { /* stays hidden */ };
+      img.src = imgUrl;
     }
-  }, { rootMargin: '300px' });
+  } catch (_) { /* stays hidden */ }
+}
 
-  cards.forEach(c => observer.observe(c));
+function setupLazyImages() {
+  // querySelectorAll finds display:none elements fine — IntersectionObserver doesn't.
+  document.querySelectorAll('.card-img[data-fetch-url]').forEach(el => fetchCardImage(el));
 }
 
 function renderSources() {
