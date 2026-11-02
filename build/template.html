@@ -1,0 +1,1577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GD Digest</title>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:            #0c0c0c;
+  --surface:       #151515;
+  --surface-hover: #1c1c1c;
+  --border:        #252525;
+  --border-strong: #363636;
+  --text:          #e3e0da;
+  --muted:         #9f9c98;
+  --faint:         rgba(255,255,255,0.04);
+
+  /* ── Version colour — update each release to signal change ── */
+  --nav-bg: #e8e5e0;
+
+  --col-exhibition: #5b9cf6;
+  --col-event:      #a78bfa;
+  --col-talk:       #c084fc;
+  --col-profile:    #34d399;
+  --col-typeface:   #fbbf24;
+  --col-tool:       #22d3ee;
+  --col-article:    #f87171;
+  --col-book:       #e09450;
+  --col-magazine:   #f472b6;
+  --col-project:    #94a3b8;
+}
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* ── Header ────────────────────────────────────────────────────────────── */
+header {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--nav-bg);
+  padding: 14px 24px 0;
+  overflow-x: clip;
+}
+.header-top {
+  display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px;
+}
+.header-top h1 {
+  font-size: 12px; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: #555250;
+}
+#result-count { font-size: 11px; color: #555250; font-variant-numeric: tabular-nums; }
+#last-updated { font-size: 11px; color: #555250; }
+.header-actions {
+  display: flex; align-items: baseline; gap: 6px;
+  margin-left: auto;
+}
+#wn-toggle {
+  padding: 2px; border-radius: 3px;
+  border: none; background: transparent;
+  color: #555250; line-height: 0;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+#wn-toggle .material-icons { font-size: 14px; display: block; }
+#wn-toggle:hover { background: rgba(0,0,0,0.06); }
+
+/* ── What's new panel ───────────────────────────────────────────────────── */
+#whats-new {
+  overflow: hidden;
+  max-height: 600px; opacity: 1;
+  transition: max-height 0.35s ease, opacity 0.2s ease;
+}
+#whats-new.wn-hidden { max-height: 0; opacity: 0; pointer-events: none; }
+.wn-body {
+  display: flex; gap: 32px; align-items: flex-start;
+  padding: 0 0 14px;
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+}
+.wn-desc {
+  flex: 1; font-size: 12px; line-height: 1.65;
+  color: #555250;
+}
+.wn-recent { flex: 2; min-width: 0; overflow: hidden; }
+.wn-label {
+  display: block; font-size: 10px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: #555250; margin-bottom: 6px;
+}
+#wn-more {
+  margin-top: 6px; background: none; border: none; padding: 0;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: #9f9c98;
+  cursor: pointer; transition: color 0.1s;
+}
+#wn-more:hover { color: #555250; }
+#wn-list {
+  list-style: none; display: flex; flex-direction: column; gap: 4px;
+}
+#wn-list li {
+  display: flex; align-items: baseline; gap: 7px;
+  font-size: 11px; color: #555250;
+  cursor: pointer; border-radius: 3px;
+  transition: color 0.1s;
+  overflow: hidden;
+}
+#wn-list li:hover { color: #555250; }
+#wn-list li:hover .wn-type { color: #555250; }
+#wn-list li .wn-type {
+  flex-shrink: 0; font-size: 9px; font-weight: 600;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: #555250;
+}
+#wn-list li .wn-title {
+  flex-shrink: 1; font-weight: 500;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  min-width: 0;
+}
+#wn-list li .wn-summary {
+  flex-shrink: 2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-weight: 500; min-width: 0;
+}
+#wn-list li .wn-summary::before { content: '— '; }
+#wn-list li .wn-date {
+  flex-shrink: 0; font-size: 10px;
+  color: #555250; font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 540px) {
+  .wn-body { flex-direction: column; gap: 10px; }
+  .wn-recent { width: 100%; }
+  .wn-desc { display: none; }
+}
+
+/* ── Search row + Nav row ───────────────────────────────────────────────── */
+.nav-row {
+  display: flex; align-items: flex-end; gap: 4px;
+  margin: 0 -24px; padding: 8px 16px 4px;
+  background: linear-gradient(to bottom, transparent calc(100% - 4px), var(--bg) calc(100% - 4px));
+}
+.nav-scroll {
+  flex: 1; overflow-x: auto; scrollbar-width: none;
+}
+.nav-scroll::-webkit-scrollbar { display: none; }
+#view-nav {
+  display: flex; gap: 3px;
+  align-items: flex-end;
+}
+.view-tab {
+  flex-shrink: 0;
+  display: flex; align-items: center;
+  padding: 6px 13px;
+  border: none; border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  background: transparent;
+  font-size: 11px; font-weight: 500; color: #555250;
+  letter-spacing: 0.04em;
+  cursor: pointer; user-select: none;
+  transition: background 0.12s, color 0.12s;
+  white-space: nowrap;
+}
+.view-tab:hover { background: rgba(0,0,0,0.08); color: #555250; }
+.view-tab.active { background: var(--bg); color: var(--text); font-weight: 600; }
+
+/* ── Filter row ─────────────────────────────────────────────────────────── */
+.filter-row {
+  position: sticky;
+  top: var(--header-h, 56px);
+  z-index: 99;
+  display: flex; align-items: center; gap: 6px;
+  flex-wrap: wrap;
+  background: var(--bg);
+  padding: 10px 24px;
+  overflow: clip;
+  max-height: 300px; opacity: 1;
+  transition: max-height 0.25s ease, opacity 0.2s ease, padding 0.25s ease;
+}
+.filter-row.filters-hidden {
+  max-height: 0; opacity: 0; padding: 0;
+  pointer-events: none;
+}
+.search-row {
+  display: flex; align-items: center; gap: 6px;
+  margin: 0 -24px; padding: 4px 24px;
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+}
+.search-icon {
+  font-size: 16px; color: #9f9c98;
+  user-select: none; flex-shrink: 0;
+}
+#search {
+  flex: 1;
+  padding: 3px 0;
+  border: none; background: transparent;
+  font-size: 12px; color: #555250;
+  font-family: inherit;
+}
+#search:focus { outline: none; }
+#search::placeholder { color: #9f9c98; }
+#filters {
+  display: grid; grid-template-columns: auto 1fr;
+  row-gap: 6px; column-gap: 12px; align-items: start; flex: 1;
+}
+.filter-pills { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.filter-rule { grid-column: 1 / -1; height: 1px; background: var(--border); }
+.filter-label {
+  font-size: 10px; color: var(--muted); letter-spacing: 0.08em;
+  text-transform: uppercase; white-space: nowrap;
+  opacity: 0.6; line-height: 1; align-self: start; padding-top: 4px;
+}
+.filter-sep { width: 1px; height: 14px; background: var(--border); margin: 0 3px; align-self: center; }
+.pill {
+  display: inline-flex; align-items: center;
+  padding: 3px 9px; border-radius: 3px;
+  border: 1px solid rgba(227,224,218,0.18); background: transparent;
+  font-size: 11px; color: #9f9c98; letter-spacing: 0.02em;
+  cursor: pointer; user-select: none; white-space: nowrap;
+  transition: all 0.1s; line-height: 1;
+}
+.pill:hover { border-color: rgba(227,224,218,0.38); color: var(--text); }
+.pill.active { background: var(--text); border-color: var(--text); color: var(--bg); font-weight: 600; }
+
+/* colour-coded pills (type filters) */
+.pill.tc { border-color: color-mix(in srgb, var(--tc) 40%, transparent); color: color-mix(in srgb, var(--tc) 55%, var(--muted)); }
+.pill.tc:hover  { border-color: var(--tc); color: var(--tc); background: color-mix(in srgb, var(--tc) 8%, transparent); }
+.pill.tc.active { background: var(--tc); border-color: var(--tc); color: #000; font-weight: 600; }
+
+/* ── Grid ──────────────────────────────────────────────────────────────── */
+main {
+  padding: 16px 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(308px, 1fr));
+  gap: 8px;
+  align-items: start;
+}
+
+/* ── Cards ─────────────────────────────────────────────────────────────── */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 4px; padding: 14px 15px;
+  display: flex; flex-direction: column; gap: 8px;
+  transition: border-color 0.15s;
+}
+.card:hover { border-color: var(--border-strong); }
+.card.is-upcoming { border-left: 2px solid var(--col-event); }
+@keyframes card-flash { 0%,100%{border-color:var(--border)} 30%{border-color:#a8ccee;box-shadow:0 0 0 2px rgba(168,204,238,0.25)} }
+.card.card-highlight { animation: card-flash 1.2s ease; }
+
+.card-top {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+}
+.type-badge {
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.07em; text-transform: uppercase;
+  padding: 2px 6px; border-radius: 2px; color: #000; flex-shrink: 0;
+}
+.new-badge {
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--col-profile); background: rgba(52,211,153,0.12);
+  padding: 2px 6px; border-radius: 2px;
+}
+.curated-badge {
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  color: #fbbf24; background: rgba(251,191,36,0.10);
+  padding: 2px 6px; border-radius: 2px;
+}
+.upcoming-label {
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--col-event);
+}
+.dual-use-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 11.5px; color: #f59e0b; position: relative; cursor: default;
+}
+.dual-use-badge .material-icons { font-size: 13px; opacity: 0.9; }
+.ai-risk-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 11.5px; color: #ef4444; position: relative; cursor: default;
+}
+.ai-risk-badge .material-icons { font-size: 13px; opacity: 0.9; }
+[data-tooltip] { position: relative; }
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+  font-size: 11px; line-height: 1.5; font-weight: 400; font-style: italic; letter-spacing: 0; text-transform: none;
+  white-space: normal; width: 220px; padding: 7px 10px; border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  pointer-events: none; opacity: 0; transition: opacity 0.15s;
+  z-index: 100;
+}
+[data-tooltip]:hover::after { opacity: 1; }
+.dual-use-badge[data-tooltip]::after  { background: #f59e0b; color: #1a1100; }
+.ai-risk-badge[data-tooltip]::after { background: #ef4444; color: #fff; }
+.card-date {
+  font-family: 'SF Mono', 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 10px; color: var(--muted); margin-left: auto; white-space: nowrap;
+  letter-spacing: 0.03em;
+}
+.card-title { font-size: 13px; font-weight: 600; line-height: 1.35; color: var(--text); }
+.card-info  { font-size: 11.5px; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
+.card-info span { display: inline-flex; align-items: center; gap: 3px; }
+.card-info .material-icons { font-size: 13px; opacity: 0.7; }
+.card-desc  { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+.card-desc em { font-style: italic; color: #e8e5e0; }
+
+.card-tags  { display: flex; flex-wrap: wrap; gap: 4px; }
+.tag {
+  font-size: 11px; padding: 2px 6px;
+  background: transparent; border: 1px solid var(--border);
+  border-radius: 2px; color: var(--muted);
+  cursor: pointer; transition: all 0.1s; user-select: none;
+  letter-spacing: 0.01em;
+}
+.tag:hover  { border-color: var(--border-strong); color: var(--text); }
+.tag.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+/* Colour-coded taxonomy tags */
+.tag.tc { border-color: color-mix(in srgb, var(--tc) 40%, transparent); color: color-mix(in srgb, var(--tc) 60%, var(--muted)); }
+.tag.tc:hover  { border-color: var(--tc); color: var(--tc); background: color-mix(in srgb, var(--tc) 8%, transparent); }
+.tag.tc.active { background: var(--tc); border-color: var(--tc); color: #000; }
+
+/* ── Card image ────────────────────────────────────────────────────────── */
+.card-img {
+  margin: -14px -15px 6px;
+  border-radius: 3px 3px 0 0;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  background: var(--border);
+  flex-shrink: 0;
+}
+.card-img img {
+  width: 100%; height: 100%;
+  object-fit: cover; display: block;
+  transition: opacity 0.2s;
+}
+
+.card-links {
+  display: flex; flex-wrap: wrap; gap: 6px 12px;
+  padding-top: 8px; border-top: 1px solid var(--border);
+}
+.card-links a { font-size: 12px; color: #6ba3d6; text-decoration: none; white-space: normal; overflow-wrap: break-word; }
+.card-links a:hover { color: #8fbde8; text-decoration: underline; }
+
+.no-results {
+  grid-column: 1 / -1; text-align: center;
+  padding: 80px 20px; color: var(--muted);
+}
+.no-results strong { display: block; font-size: 15px; font-weight: 600; margin-bottom: 6px; color: var(--text); }
+
+mark { background: rgba(251,191,36,0.18); color: #fbbf24; border-radius: 2px; padding: 0 1px; }
+
+@media (max-width: 580px) {
+  main { grid-template-columns: 1fr; padding: 12px; }
+  header { padding: 12px 14px 0; }
+  .nav-row { margin: 0 -14px; padding: 8px 14px 4px; }
+  .filter-row { padding: 10px 14px; }
+  .search-row { margin: 0 -14px; padding: 4px 14px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── App ─────────────────────────────────────────────────────────────── -->
+<div id="app">
+  <header>
+    <div class="header-top">
+      <h1>GD Digest</h1>
+      <span id="result-count"></span>
+      <span id="last-updated"></span>
+      <div class="header-actions">
+        <button id="wn-toggle" aria-expanded="true"><span class="material-icons">close</span></button>
+      </div>
+    </div>
+    <div id="whats-new">
+      <div class="wn-body">
+        <p class="wn-desc">A curated calendar, tools directory, glossary, and tutorial guide for BA (Hons) Graphic Design students at Sheffield Hallam. Updated weekly.</p>
+        <div class="wn-recent">
+          <span class="wn-label">Recently added</span>
+          <ul id="wn-list"></ul>
+          <button id="wn-more" style="display:none">Show more</button>
+        </div>
+      </div>
+    </div>
+    <div class="search-row">
+      <span class="material-icons search-icon">search</span>
+      <input type="search" id="search" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="nav-row">
+      <div class="nav-scroll"><nav id="view-nav"></nav></div>
+    </div>
+  </header>
+  <div class="filter-row">
+    <div id="filters"></div>
+  </div>
+  <main id="grid"></main>
+</div>
+
+<script>
+'use strict';
+
+// ── Constants ───────────────────────────────────────────────────────────────
+
+// Taxonomy tags from the brief's Categories section — shown as filter pills.
+// Subject tags (location, format, one-offs) stay on cards as clickable chips.
+const CATEGORY_TAGS = new Set([
+  // Core graphic design
+  'typography','identity','editorial','poster','wayfinding','packaging','motion','web',
+  // Adjacent disciplines
+  'photography','illustration','book-arts','printmaking','spatial','branding','art-direction',
+  // Experimental and time-based
+  'generative','interactive','moving-image','experimental',
+  // Production and material
+  'variable','open-source','hand-lettering','risograph','letterpress','screen-print',
+  // Critical and contextual
+  'criticality','history','education','community','self-initiated','commercial',
+]);
+
+// Tool category colours
+const CATEGORY_COLORS = {
+  'typography':  '#fbbf24',
+  'colour':      '#f87171',
+  'layout':      '#5b9cf6',
+  'collaboration':'#a78bfa',
+  'inspiration': '#34d399',
+  'motion':      '#22d3ee',
+  'ai':          '#f472b6',
+  'production':  '#94a3b8',
+  'image':       '#10b981',
+  'experimental':'#fb923c',
+  'open source':    '#a3e635',
+  'font design':    '#e879f9',
+  'creative coding':'#818cf8',
+  'projection mapping & ar': '#2dd4bf',
+  'portfolio & web':         '#38bdf8',
+  'mockups':                 '#fb7185',
+};
+
+// Glossary domain → badge
+const GLOSSARY_DOMAIN = {
+  'concept': 'AI', 'model': 'AI', 'training': 'AI', 'safety': 'AI', 'tool': 'AI',
+  'typography': 'Design', 'type design': 'Design', 'book design': 'Design',
+  'grid & layout': 'Design', 'print production': 'Design', 'wayfinding': 'Design',
+};
+const GLOSSARY_DOMAIN_COLORS = {
+  'AI':     '#6366f1',
+  'Design': '#f59e0b',
+};
+// Glossary subcategory tag colours
+const GLOSSARY_CATEGORY_COLORS = {
+  // AI
+  'concept':     '#5b9cf6',
+  'model':       '#f472b6',
+  'training':    '#a78bfa',
+  'safety':      '#f87171',
+  'tool':        '#22d3ee',
+  // Design
+  'typography':      '#fbbf24',
+  'type design':     '#e879f9',
+  'book design':     '#e09450',
+  'grid & layout':   '#34d399',
+  'print production':'#fb923c',
+  'wayfinding':      '#60a5fa',
+};
+
+// Group colour per taxonomy tag — amber · blue · purple · teal · rose
+const TAG_COLORS = {};
+[
+  ['#fbbf24', ['typography','identity','editorial','poster','wayfinding','packaging','motion','web']],
+  ['#5b9cf6', ['photography','illustration','book-arts','printmaking','spatial','branding','art-direction']],
+  ['#a78bfa', ['generative','interactive','moving-image','experimental']],
+  ['#34d399', ['variable','open-source','hand-lettering','risograph','letterpress','screen-print']],
+  ['#f87171', ['criticality','history','education','community','self-initiated','commercial']],
+  ['#f59e0b', ['dual-use']],
+  ['#ef4444', ['ai-risk']],
+].forEach(([color, tags]) => tags.forEach(t => TAG_COLORS[t] = color));
+
+const TYPE_COLORS = {
+  exhibition: '#5b9cf6', event: '#a78bfa', talk: '#c084fc',
+  profile:    '#34d399', typeface: '#fbbf24', tool: '#22d3ee',
+  article:    '#f87171', book: '#e09450', magazine: '#f472b6',
+  project:    '#94a3b8',
+};
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const TUTORIAL_TOOL_COLORS = {
+  'figma': '#a78bfa', 'blender': '#f97316',
+  'touchdesigner': '#22d3ee', 'affinity suite': '#60a5fa',
+  'claude code': '#e09450', 'claude': '#e09450',
+  'artivive': '#2dd4bf', 'lazy lighting': '#fbbf24',
+  'madmapper': '#818cf8', 'heavym': '#4ade80', 'mapmap': '#e879f9',
+  'cargo': '#fb7185', 'adobe portfolio': '#f43f5e',
+  'figma sites': '#8b5cf6', 'webflow': '#4f46e5',
+  'framer': '#06b6d4', 'readymag': '#f59e0b',
+  'artboard studio': '#fb923c', 'mockuuups studio': '#c084fc',
+  'google stitch': '#4285f4',
+};
+const TUTORIAL_PLATFORM_COLORS = {
+  youtube: '#f87171', podcast: '#34d399', written: '#6b7280',
+  vimeo: '#a78bfa', online: '#22d3ee', 'linkedin learning': '#0a66c2',
+  'anthropic academy': '#e09450',
+};
+const TUTORIAL_LEVEL_COLORS = {
+  beginner: '#34d399', intermediate: '#fbbf24', advanced: '#f87171',
+};
+
+// ── State ───────────────────────────────────────────────────────────────────
+const S = {
+  entries:           [],
+  sources:           { intro: '', groups: [] },
+  tools:             [],
+  tutorials:         [],
+  glossary:          [],
+  search:            '',
+  view:              'digest',     // digest | tools | tutorials | glossary | sources
+  timeFilter:        'all',       // all | this-week | this-month | future | archive  (digest view only)
+  sort:              'date-desc', // date-desc | date-asc | alpha | cat
+  types:             new Set(),
+  categories:        new Set(),
+  tutorialTools:     new Set(),
+  tutorialLevels:    new Set(),
+  glossaryCategories:new Set(),
+  glossaryDomains:   new Set(),
+  tag:               null,
+};
+
+// ── Parser ───────────────────────────────────────────────────────────────────
+function parseCalendar(md) {
+  const entries = [];
+  const sources = { intro: '', groups: [] };
+  const tools   = [];
+  const lines   = md.split('\n');
+  let upcoming  = false;
+  let e         = null;
+  let bodyMode  = false;
+  let srcMode   = false;
+  let srcGroup  = null;
+  let toolMode  = false;
+  let t         = null;
+
+  function save() {
+    if (e && e.title) entries.push(e);
+    e = null; bodyMode = false;
+  }
+  function saveTool() {
+    if (t && t.title) tools.push(t);
+    t = null;
+  }
+
+  // Separator used in entry headers: space · space (middle dot U+00B7)
+  const SEP = ' · ';
+
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+
+    // ── Tools section ────────────────────────────────────────────────────────
+    if (/^## Tools/.test(line)) { save(); toolMode = true; continue; }
+    if (toolMode) {
+      if (/^## Sources/.test(line)) { saveTool(); toolMode = false; srcMode = true; continue; }
+      if (line === '---') { saveTool(); continue; }
+      if (/^### Tool · /.test(line)) {
+        saveTool();
+        t = { title: line.slice('### Tool · '.length).trim(), category: null, price: null,
+              tags: [], description: '', links: [], image: null, isTool: true };
+        continue;
+      }
+      if (!t) continue;
+      if (/^\*Category:/.test(line)) {
+        const catM   = line.match(/Category:\s*([^·*`]+)/);   if (catM)   t.category = catM[1].trim();
+        const priceM = line.match(/Price:\s*([^·*`]+?)(?=\s*·\s*[A-Z]|\s*\*|$)/); if (priceM) t.price = priceM[1].trim();
+        const tagsM  = line.match(/Tags:\s*(.*?)(?=\s*\*|$)/); if (tagsM) t.tags = [...tagsM[1].matchAll(/`([^`]+)`/g)].map(m => m[1]);
+        continue;
+      }
+      if (/^\*Image:\s*https?:\/\//.test(line)) {
+        const m = line.match(/^\*Image:\s*(https?:\/\/[^\s*]+)/); if (m) t.image = m[1]; continue;
+      }
+      if (/\[[^\]]+\]\([^)]+\)/.test(line)) {
+        const ms = [...line.matchAll(/\[([^\]]+)\]\(([^)]+)\)/g)];
+        t.links.push(...ms.map(m => ({ text: m[1], url: m[2] }))); continue;
+      }
+      if (line.trim() && !line.startsWith('*') && !line.startsWith('#')) {
+        if (t.description) t.description += ' ';
+        t.description += line.trim();
+      }
+      continue;
+    }
+
+    // ── Sources section ──────────────────────────────────────────────────────
+    if (/^## Sources/.test(line)) { save(); srcMode = true; continue; }
+    if (srcMode) {
+      const groupM = line.match(/^\*\*(.+?)\*\*\s*$/);
+      if (groupM) {
+        srcGroup = { title: groupM[1], links: [] };
+        sources.groups.push(srcGroup);
+      } else if (srcGroup && /\[/.test(line)) {
+        line.split(/\s*·\s*/).forEach(seg => {
+          const lm = seg.match(/\[([^\]]+)\]\(([^)]+)\)/);
+          if (!lm) return;
+          const dm = seg.slice(seg.indexOf(')')+1).match(/\s*[—–-]\s*(.+)/);
+          srcGroup.links.push({ text: lm[1], url: lm[2], desc: dm ? dm[1].trim() : null });
+        });
+      } else if (!srcGroup && line.trim() && !line.startsWith('#') && !line.startsWith('*')) {
+        if (sources.intro) sources.intro += ' ';
+        sources.intro += line.trim();
+      }
+      continue;
+    }
+
+    if (/^## Upcoming/.test(line))   { upcoming = true;  continue; }
+    if (/^## \d{4}/.test(line))      { upcoming = false; continue; }
+
+    // Month-divider heading: ### Feb·26 (no space-dot-space separators)
+    if (/^### [A-Z][a-z]+[\u00B7·]\d{2}$/.test(line)) continue;
+
+    if (line === '---') { save(); continue; }
+
+    // Entry heading: ### DATE · TYPE · TITLE
+    if (line.startsWith('### ') && line.includes(SEP)) {
+      save();
+      const body = line.slice(4); // strip "### "
+      const parts = body.split(SEP);
+      if (parts.length < 3) continue;
+
+      const dateRaw = parts[0].trim();
+      const type    = parts[1].trim().toLowerCase();
+      const title   = parts.slice(2).join(SEP).trim(); // rejoin in case title contains ·
+
+      // Parse sortable date — supports MM·YY (monthly) and DD·MM·YY (weekly)
+      const dateToken  = dateRaw.split(/\s+/).pop();
+      const dotSplit   = dateToken.split(/[\u00B7·]/);
+      let dd, mm, yy;
+      if (dotSplit.length >= 3) {
+        // Weekly format: DD·MM·YY
+        dd = dotSplit[0].padStart(2, '0');
+        mm = dotSplit[1].padStart(2, '0');
+        yy = dotSplit[2].padStart(2, '0');
+      } else {
+        // Monthly format: MM·YY (legacy / backward-compat)
+        dd = null;
+        mm = (dotSplit[0] || '00').padStart(2, '0');
+        yy = (dotSplit[1] || '26').padStart(2, '0');
+      }
+      const monthKey   = `${mm}\u00B7${yy}`; // always MM·YY for grouping & filters
+      const monthLabel = (() => {
+        const n = parseInt(mm, 10);
+        return (n >= 1 && n <= 12) ? `${MONTH_NAMES[n-1]} '${yy}` : monthKey;
+      })();
+      // Human-readable day label, e.g. "23rd Mar '26" — only when day is known
+      const dayLabel = (dd && parseInt(mm,10) >= 1 && parseInt(mm,10) <= 12)
+        ? `${ordinal(parseInt(dd, 10))} ${MONTH_NAMES[parseInt(mm,10)-1]} '${yy}`
+        : null;
+      const dateSort = dd
+        ? `20${yy}-${mm}-${dd}`
+        : `20${yy}-${mm}`;
+
+      e = {
+        dateRaw, dateSort,
+        monthKey, monthLabel, dayLabel,
+        type, title,
+        tags: [], description: '', links: [],
+        format: null, price: null, date: null, registration: null, image: null,
+        upcoming, isNew: false,
+      };
+      bodyMode = false;
+      continue;
+    }
+
+    if (!e) continue;
+
+    // Metadata line: *Type: exhibition · Format: in-person · Price: £10 · Tags: `a` `b`*
+    if (/^\*Type:/.test(line)) {
+      const tgM = line.match(/Tags:\s*(.*?)(?=\s*\*|$)/);
+      if (tgM) {
+        e.tags  = [...tgM[1].matchAll(/`([^`]+)`/g)].map(m => m[1]);
+        e.isNew = e.tags.includes('new');
+      }
+      const fmM = line.match(/Format:\s*([^·*`]+?)(?=\s*·\s*[A-Z]|\s*\*|$)/);
+      if (fmM) e.format = fmM[1].trim();
+      const pmM = line.match(/Price:\s*([^·*]+?)(?=\s*·\s*[A-Z]|\s*\*|$)/);
+      if (pmM) e.price = pmM[1].trim();
+      const dtM = line.match(/Date:\s*([^·*]+?)(?=\s*·\s*[A-Z]|\s*\*|$)/);
+      if (dtM) {
+        e.date = dtM[1].trim();
+        // Month lookup (full + abbreviated)
+        const _MO = {January:1,February:2,March:3,April:4,May:5,June:6,July:7,August:8,September:9,October:10,November:11,December:12,Jan:1,Feb:2,Mar:3,Apr:4,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+        const _fy = +(e.dateSort||'2026').slice(0,4);
+        // Parse a day-level date fragment: "6 March", "6 March 2026", "13 Feb 2026"
+        // Strips trailing time info and parentheticals first
+        const _pDay = (s, fy) => {
+          const c = s.replace(/[,\s]+\d{1,2}[:aApP].*$/, '').replace(/\s*\([^)]*\).*/,'').trim();
+          let x = c.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/);
+          if (x && _MO[x[2]]) return {d:+x[1], m:_MO[x[2]], y:+x[3]};
+          x = c.match(/^(\d{1,2})\s+([A-Za-z]+)$/);
+          if (x && _MO[x[2]]) return {d:+x[1], m:_MO[x[2]], y:fy};
+          return null;
+        };
+        const _fmt = r => r ? `${r.y}-${String(r.m).padStart(2,'0')}-${String(r.d).padStart(2,'0')}` : null;
+        // "Until DD Month YYYY" — end date only, no known start
+        const _until = e.date.match(/^[Uu]ntil\s+(.*)/);
+        if (_until) {
+          const _r = _pDay(_until[1].trim(), _fy);
+          if (_r) e.dateEndSort = _fmt(_r);
+        } else {
+          const _parts = e.date.split(/\s+–\s+/);
+          // Start date (day-level, for use when heading is monthly-only)
+          const _rs = _pDay(_parts[0], _fy);
+          if (_rs) e.dateStartSort = _fmt(_rs);
+          // End date
+          if (_parts.length >= 2) {
+            const _es = _parts[_parts.length-1].trim();
+            const _re = _pDay(_es, _fy);
+            let _em, _ey, _ed;
+            if (_re) { _ed=_re.d; _em=_re.m; _ey=_re.y; }
+            else {
+              let _x = _es.match(/^([A-Za-z]+)\s+(\d{4})/);
+              if (_x && _MO[_x[1]]) { _em=_MO[_x[1]]; _ey=+_x[2]; }
+              if (!_em) {
+                _x = _es.match(/^(\d{1,2})\s+([A-Za-z]+)$/);
+                if (_x && _MO[_x[2]]) {
+                  _ed=+_x[1]; _em=_MO[_x[2]];
+                  const _sm=+(e.dateSort||'').slice(5,7)||1;
+                  _ey = (_em < _sm) ? _fy+1 : _fy; }
+              }
+            }
+            if (_em && _ey) {
+              const _d = _ed || new Date(_ey,_em,0).getDate();
+              e.dateEndSort = `${_ey}-${String(_em).padStart(2,'0')}-${String(_d).padStart(2,'0')}`;
+            }
+          }
+        }
+      }
+      const rgM = line.match(/Registration:\s*([^·*`]+?)(?=\s*·\s*[A-Z]|\s*\*|$)/);
+      if (rgM) e.registration = rgM[1].trim();
+      const adM = line.match(/Added:\s*(\d{8})(?=\s*·\s*|\s*\*|$)/);
+      if (adM) e.added = adM[1];
+      bodyMode = true;
+      continue;
+    }
+
+    // Image override line: *Image: https://...*
+    if (e && /^\*Image:\s*https?:\/\//.test(line)) {
+      const m = line.match(/^\*Image:\s*(https?:\/\/[^\s*]+)/);
+      if (m) e.image = m[1];
+      continue;
+    }
+
+    // Link line (contains at least one markdown link)
+    if (/\[[^\]]+\]\([^)]+\)/.test(line)) {
+      const ms = [...line.matchAll(/\[([^\]]+)\]\(([^)]+)\)/g)];
+      e.links.push(...ms.map(m => ({ text: m[1], url: m[2] })));
+      continue;
+    }
+
+    // Description body
+    if (bodyMode && line.trim() && !line.startsWith('*') && !line.startsWith('#')) {
+      if (e.description) e.description += ' ';
+      e.description += line.trim();
+    }
+  }
+
+  save();
+  saveTool();
+  return { entries, sources, tools };
+}
+
+// ── Glossary parser ───────────────────────────────────────────────────────────
+function parseGlossary(md) {
+  const terms = [];
+  const lines = md.split('\n');
+  let g = null;
+
+  function saveTerm() { if (g && g.title) terms.push(g); g = null; }
+
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+    if (/^## [A-Z]$/.test(line)) continue;          // letter headings
+    if (/^## /.test(line) || line === '---') { saveTerm(); continue; }
+
+    if (/^### /.test(line)) {
+      saveTerm();
+      const head    = line.slice(4).trim();
+      const acrM    = head.match(/^(.+?)\s+`([^`]+)`\s*$/);
+      const title   = acrM ? acrM[1].trim() : head;
+      const acronym = acrM ? acrM[2].trim() : null;
+      g = { title, acronym, category: null, tags: [], description: '', isGlossary: true };
+      continue;
+    }
+    if (!g) continue;
+    if (/^\*Category:/.test(line)) {
+      const catM  = line.match(/Category:\s*([^·*`]+)/); if (catM)  g.category = catM[1].trim();
+      const tagsM = line.match(/Tags:\s*(.*?)(?=\s*\*|$)/); if (tagsM) g.tags = [...tagsM[1].matchAll(/`([^`]+)`/g)].map(m => m[1]);
+      continue;
+    }
+    if (line.trim() && !line.startsWith('*') && !line.startsWith('#') && !line.startsWith('[')) {
+      const cleaned = line.trim().replace(/\s*\[\[\d+\]\]\(#[^)]+\)/g, '');
+      if (cleaned) { if (g.description) g.description += ' '; g.description += cleaned; }
+    }
+  }
+  saveTerm();
+  return terms;
+}
+
+function parseTutorials(md) {
+  const tutorials = [];
+  const lines = md.split('\n');
+  let t = null;
+
+  function saveTut() { if (t && t.title) tutorials.push(t); t = null; }
+
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+    if (/^## /.test(line) || line === '---') { saveTut(); continue; }
+    if (/^### Tutorial · /.test(line)) {
+      saveTut();
+      t = { title: line.slice('### Tutorial · '.length).trim(), tool: null, platform: null,
+            level: null, requires: null, tags: [], description: '', links: [], isTutorial: true };
+      continue;
+    }
+    if (!t) continue;
+    if (/^\*Tool:/.test(line)) {
+      const toolM  = line.match(/Tool:\s*([^·*]+)/);     if (toolM)  t.tool     = toolM[1].trim();
+      const platM  = line.match(/Platform:\s*([^·*]+)/); if (platM)  t.platform = platM[1].trim();
+      const levM   = line.match(/Level:\s*([^·*]+)/);    if (levM)   t.level    = levM[1].trim();
+      const reqM   = line.match(/Requires:\s*([^*]+)/);  if (reqM)   t.requires = reqM[1].trim().replace(/\s*\*$/, '');
+      const tagsM  = line.match(/Tags:\s*(.*?)(?=\s*\*|$)/); if (tagsM) t.tags = [...tagsM[1].matchAll(/`([^`]+)`/g)].map(m => m[1]);
+      continue;
+    }
+    // Links: [text](url) · [text](url)
+    if (/^\[/.test(line.trim())) {
+      const linkRe = /\[([^\]]+)\]\(([^)]+)\)/g;
+      let m;
+      while ((m = linkRe.exec(line)) !== null) {
+        t.links.push({ text: m[1], url: m[2] });
+      }
+      continue;
+    }
+    if (line.trim() && !line.startsWith('*') && !line.startsWith('#')) {
+      if (t.description) t.description += ' '; t.description += line.trim();
+    }
+  }
+  saveTut();
+  return tutorials;
+}
+
+// ── Utilities ────────────────────────────────────────────────────────────────
+function esc(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function ordinal(n) {
+  const v = n % 100;
+  return n + (['th','st','nd','rd'][(v - 20) % 10] || ['th','st','nd','rd'][v] || 'th');
+}
+function cardSlug(title) {
+  return title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+function mdInline(text) {
+  return esc(text)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+}
+function highlight(html, q) {
+  if (!q) return html;
+  const re = new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi');
+  return html.replace(re, '<mark>$1</mark>');
+}
+function typeColor(type) { return TYPE_COLORS[type] || '#6b7280'; }
+
+// ── Filter ───────────────────────────────────────────────────────────────────
+const STD_MONTH = /^\d\d[\u00B7\xB7·]\d\d$/;
+
+function getFiltered() {
+  const q = S.search.toLowerCase().trim();
+  const results = S.entries.filter(e => {
+    if (S.timeFilter === 'archive' && e.upcoming) return false;
+    if (S.timeFilter === 'this-week' || S.timeFilter === 'this-month' || S.timeFilter === 'future') {
+      const now = new Date();
+      // Parse start date from YYYY-MM-DD or YYYY-MM (dateSort uses hyphens)
+      const ds = e.dateSort || '';
+      const dsp = ds.split('-');
+      const startDate = dsp.length >= 3 ? new Date(+dsp[0], +dsp[1]-1, +dsp[2])
+                      : dsp.length === 2 ? new Date(+dsp[0], +dsp[1]-1, 1) : null;
+      // Parse end date from dateEndSort (set by parser for Date: ranges)
+      const des = e.dateEndSort || '';
+      const dep = des.split('-');
+      const endDate = dep.length >= 3
+        ? (() => { const d = new Date(+dep[0], +dep[1]-1, +dep[2]); d.setHours(23,59,59,999); return d; })()
+        : null;
+      if (S.timeFilter === 'future') {
+        // Show entries starting after the end of this month
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        if (startDate) { if (startDate <= endOfMonth) return false; }
+        else {
+          const [mm, yy] = (e.monthKey||'').split('·');
+          const eYear = 2000 + (+yy||0), eMon = (+mm||1) - 1;
+          if (eYear < now.getFullYear() || (eYear === now.getFullYear() && eMon <= now.getMonth())) return false;
+        }
+      } else if (S.timeFilter === 'this-week') {
+        const wday = now.getDay(), wdiff = wday === 0 ? -6 : 1 - wday;
+        const wMon = new Date(now); wMon.setDate(now.getDate() + wdiff); wMon.setHours(0,0,0,0);
+        const wSun = new Date(wMon); wSun.setDate(wMon.getDate() + 6); wSun.setHours(23,59,59,999);
+        // Prefer dateStartSort (day-level from Date: field) over heading dateSort when heading is monthly
+        const _ess = e.dateStartSort || (dsp.length >= 3 ? e.dateSort : null);
+        const _esp = _ess ? _ess.split('-') : null;
+        const effStart = (_esp && _esp.length >= 3) ? new Date(+_esp[0], +_esp[1]-1, +_esp[2]) : null;
+        if (!effStart && endDate) {
+          // "Until DD Month" — no known start; show if still running this week
+          if (endDate < wMon) return false;
+        } else if (!effStart) {
+          return false; // no usable date
+        } else if (endDate) {
+          if (effStart > wSun || endDate < wMon) return false; // duration doesn't overlap week
+        } else {
+          if (effStart < wMon || effStart > wSun) return false; // point-in-time not in week
+        }
+      } else { // this-month
+        const mStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const mEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 0); mEnd.setHours(23,59,59,999);
+        if (endDate) {
+          // Duration entry: show if range overlaps this month
+          if (!startDate || startDate > mEnd || endDate < mStart) return false;
+        } else if (startDate && dsp.length >= 3) {
+          // Day-level point-in-time: must fall within this month
+          if (startDate < mStart || startDate > mEnd) return false;
+        } else {
+          // Month-level entry: check monthKey
+          const [mm, yy] = (e.monthKey||'').split('·');
+          const eYear = 2000 + (+yy||0), eMon = (+mm||1) - 1;
+          if (eYear !== now.getFullYear() || eMon !== now.getMonth()) return false;
+        }
+      }
+    }
+    if (S.types.size && !S.types.has(e.type))       return false;
+    if (S.tag && !e.tags.includes(S.tag))           return false;
+    if (!q) return true;
+    const corpus = [e.title, e.description, e.tags.join(' '),
+                    e.price||'', e.format||''].join(' ').toLowerCase();
+    return corpus.includes(q);
+  });
+
+  if (S.sort === 'alpha') {
+    results.sort((a,b) => a.title.localeCompare(b.title));
+  } else if (S.sort === 'date-asc') {
+    results.sort((a,b) => {
+      const aStd = STD_MONTH.test(a.monthKey), bStd = STD_MONTH.test(b.monthKey);
+      if (aStd !== bStd) return aStd ? -1 : 1; // dated entries first
+      return a.dateSort.localeCompare(b.dateSort);
+    });
+  } else { // date-desc (default)
+    results.sort((a,b) => {
+      // 1. upcoming entries always sit below the archive (takes priority over isNew)
+      if (a.upcoming !== b.upcoming) return a.upcoming ? 1 : -1;
+      // 2. within archive only: isNew entries pin to the top
+      if (!a.upcoming && a.isNew !== b.isNew) return a.isNew ? -1 : 1;
+      const aStd = STD_MONTH.test(a.monthKey), bStd = STD_MONTH.test(b.monthKey);
+      if (aStd !== bStd) return aStd ? -1 : 1; // dated entries first
+      // 3. upcoming sorted soonest-first; archive sorted newest-first
+      return a.upcoming
+        ? a.dateSort.localeCompare(b.dateSort)
+        : b.dateSort.localeCompare(a.dateSort);
+    });
+  }
+  return results;
+}
+
+// ── Render ───────────────────────────────────────────────────────────────────
+function buildNav() {
+  const views = [
+    ['digest','Digest'],['tools','Tools'],['tutorials','Tutorials'],['glossary','Glossary'],['sources','Sources'],
+  ];
+  document.getElementById('view-nav').innerHTML = views.map(([v, label]) =>
+    `<button class="view-tab${S.view===v?' active':''}" data-view="${v}">${label}</button>`
+  ).join('');
+}
+
+function group(label, btns) {
+  return `<span class="filter-label">${label}</span><div class="filter-pills">${btns}</div>`;
+}
+
+function buildFilters() {
+  const allTypes  = [...new Set(S.entries.map(e => e.type))].sort();
+  const allCats   = [...new Set(S.tools.map(t => t.category).filter(Boolean))].sort();
+  const allLevels = ['Beginner','Intermediate','Advanced'].filter(l => S.tutorials.some(t => t.level === l));
+
+  const typeBtns = allTypes.map(t => {
+    const c = TYPE_COLORS[t];
+    return `<button class="pill tc${S.types.has(t)?' active':''}" data-type="${t}"${c?` style="--tc:${c}"`:''}>${t.charAt(0).toUpperCase()+t.slice(1)}</button>`;
+  }).join('');
+
+  const catBtns = allCats.map(cat => {
+    const c = CATEGORY_COLORS[cat.toLowerCase()];
+    return `<button class="pill tc${S.categories.has(cat)?' active':''}" data-cat="${esc(cat)}"${c?` style="--tc:${c}"`:''}>${esc(cat)}</button>`;
+  }).join('');
+
+  const allTools = [...new Set(S.tutorials.map(t => t.tool).filter(Boolean))].sort();
+  const toolBtns = allTools.map(tool => {
+    const c = TUTORIAL_TOOL_COLORS[tool.toLowerCase()];
+    return `<button class="pill tc${S.tutorialTools.has(tool)?' active':''}" data-tuttool="${esc(tool)}"${c?` style="--tc:${c}"`:''}>${esc(tool)}</button>`;
+  }).join('');
+  const levelBtns = allLevels.map(l => {
+    const c = TUTORIAL_LEVEL_COLORS[l.toLowerCase()];
+    return `<button class="pill tc${S.tutorialLevels.has(l)?' active':''}" data-tutlevel="${esc(l)}"${c?` style="--tc:${c}"`:''}>${esc(l)}</button>`;
+  }).join('');
+
+  const glossDomainBtns = Object.entries(GLOSSARY_DOMAIN_COLORS).map(([dom, color]) =>
+    `<button class="pill tc${S.glossaryDomains.has(dom)?' active':''}" data-glossdomain="${esc(dom)}" style="--tc:${color}">${dom}</button>`
+  ).join('');
+  const AI_CATS     = ['concept','model','training','safety','tool'];
+  const DESIGN_CATS = ['typography','type design','book design','grid & layout','print production','wayfinding'];
+  const presentCats = new Set(S.glossary.map(g => g.category).filter(Boolean));
+  const visibleAI     = !S.glossaryDomains.size || S.glossaryDomains.has('AI');
+  const visibleDesign = !S.glossaryDomains.size || S.glossaryDomains.has('Design');
+  const visibleCats   = [
+    ...(visibleAI     ? AI_CATS     : []),
+    ...(visibleDesign ? DESIGN_CATS : []),
+  ].filter(c => presentCats.has(c));
+  const aiCount     = visibleAI ? AI_CATS.filter(c => presentCats.has(c)).length : 0;
+  const glossCatBtns = visibleCats.map((cat, i) => {
+    const c   = GLOSSARY_CATEGORY_COLORS[cat];
+    const sep = visibleAI && visibleDesign && i === aiCount
+      ? `<span style="width:1px;background:var(--border);margin:0 2px;align-self:stretch"></span>`
+      : '';
+    return `${sep}<button class="pill tc${S.glossaryCategories.has(cat)?' active':''}" data-glosscat="${esc(cat)}"${c?` style="--tc:${c}"`:''}>${esc(cat)}</button>`;
+  }).join('');
+
+  // Sort pills — context-sensitive
+  const sortOpts = (S.view === 'tools' || S.view === 'glossary')
+    ? [['alpha','A–Z'],['cat','Category']]
+    : (S.view === 'tutorials')
+    ? [['alpha','A–Z']]
+    : [['date-desc','Newest'],['date-asc','Oldest'],['alpha','A–Z']];
+  const sortBtns = S.view === 'sources' ? '' : sortOpts.map(([val,label]) =>
+    `<button class="pill${S.sort===val?' active':''}" data-sort="${val}">${label}</button>`
+  ).join('');
+
+  // Assemble contextual filter groups
+  const parts = [];
+  if (S.view === 'digest') {
+    const showBtns = [['all','All'],['this-week','This week'],['this-month','This month'],['future','And beyond']].map(([v,l]) =>
+      `<button class="pill${S.timeFilter===v?' active':''}" data-timefilter="${v}">${l}</button>`
+    ).join('');
+    const archiveBtn = `<button class="pill${S.timeFilter==='archive'?' active':''}" data-timefilter="archive">Archive</button>`;
+    parts.push(group('Show', showBtns + `<span class="filter-sep"></span>${archiveBtn}`));
+    parts.push(group('Type', typeBtns));
+  }
+  if (S.view === 'tools')    parts.push(group('Category', catBtns));
+  if (S.view === 'tutorials') {
+    if (toolBtns)  parts.push(group('Tool',  toolBtns));
+    if (levelBtns) parts.push(group('Level', levelBtns));
+  }
+  if (S.view === 'glossary') {
+    parts.push(group('Domain', glossDomainBtns));
+    if (glossCatBtns) { parts.push(group('Category', glossCatBtns)); }
+  }
+  if (sortBtns) { parts.push(group('Sort', sortBtns)); }
+
+  const rule = `<div class="filter-rule"></div>`;
+  document.getElementById('filters').innerHTML = parts.join(rule);
+}
+
+function buildCard(e, q) {
+  // ── Glossary term card ──────────────────────────────────────────────────────
+  if (e.isGlossary) {
+    const domain      = GLOSSARY_DOMAIN[e.category] || 'AI';
+    const domainColor = GLOSSARY_DOMAIN_COLORS[domain] || '#6b7280';
+    const catColor    = GLOSSARY_CATEGORY_COLORS[e.category] || '#6b7280';
+    const titleHtml   = highlight(esc(e.title), q);
+    const descHtml    = highlight(mdInline(e.description), q);
+    const catTag      = e.category
+      ? `<span class="tag" style="color:${catColor};background:${catColor}1a;border:1px solid ${catColor}40">${esc(e.category)}</span>`
+      : '';
+    const tagHtml     = e.tags.map(t => `<span class="tag">${esc(t)}</span>`).join('');
+    const acronym     = e.acronym
+      ? `<span style="font-size:11px;color:var(--muted);margin-left:4px;font-weight:400">${esc(e.acronym)}</span>`
+      : '';
+    return `<div class="card" data-card-id="${cardSlug(e.title)}">
+      <div class="card-top">
+        <span class="type-badge" style="background:${domainColor}">${domain}</span>
+      </div>
+      <div class="card-title">${titleHtml}${acronym}</div>
+      ${e.description ? `<div class="card-desc">${descHtml}</div>` : ''}
+      ${(catTag || tagHtml) ? `<div class="card-tags">${catTag}${tagHtml}</div>` : ''}
+    </div>`;
+  }
+
+  // ── Tutorial card ────────────────────────────────────────────────────────────
+  if (e.isTutorial) {
+    const toolKey    = (e.tool || '').toLowerCase();
+    const toolColor  = TUTORIAL_TOOL_COLORS[toolKey] || '#6b7280';
+    const platKey    = (e.platform || '').toLowerCase();
+    const platColor  = TUTORIAL_PLATFORM_COLORS[platKey] || '#6b7280';
+    const levelKey   = (e.level || '').toLowerCase();
+    const levelColor = TUTORIAL_LEVEL_COLORS[levelKey] || '#6b7280';
+    const titleHtml  = highlight(esc(e.title), q);
+    const descHtml   = highlight(mdInline(e.description), q);
+    const linksHtml  = e.links.map(l =>
+      `<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.text)}</a>`
+    ).join('');
+    const levelBadge = e.level
+      ? `<span class="new-badge" style="background:${levelColor}20;color:${levelColor};border:1px solid ${levelColor}40">${esc(e.level)}</span>`
+      : '';
+    const platBadge = e.platform
+      ? `<span style="font-size:10px;color:var(--muted);opacity:0.7;margin-left:2px">${esc(e.platform)}</span>`
+      : '';
+    const requiresHtml = e.requires && e.requires.toLowerCase() !== 'none'
+      ? `<div style="font-size:11px;color:var(--muted);opacity:0.65;margin-top:2px">Requires: ${esc(e.requires)}</div>`
+      : '';
+    return `<div class="card" data-card-id="${cardSlug(e.title)}">
+      <div class="card-top">
+        <span class="type-badge" style="background:${toolColor}">${esc(e.tool || 'Tutorial')}</span>
+        ${levelBadge}${platBadge}
+      </div>
+      <div class="card-title">${titleHtml}</div>
+      ${requiresHtml}
+      ${e.description ? `<div class="card-desc">${descHtml}</div>` : ''}
+      ${linksHtml ? `<div class="card-links">${linksHtml}</div>` : ''}
+    </div>`;
+  }
+
+  const isTool   = !!e.isTool;
+  const color    = isTool ? (CATEGORY_COLORS[(e.category||'').toLowerCase()] || '#6b7280') : typeColor(e.type);
+  const label    = isTool ? (e.category || 'tool') : e.type;
+  const descHtml = highlight(mdInline(e.description), q);
+  const titleHtml= highlight(mdInline(e.title), q);
+  const visibleTags = e.tags.filter(t => t !== 'new');
+
+  const tagHtml = visibleTags.map(t => {
+    const c = TAG_COLORS[t];
+    return `<span class="tag${c ? ' tc' : ''}${S.tag===t?' active':''}" data-tag="${esc(t)}"${c ? ` style="--tc:${c}"` : ''}>${esc(t)}</span>`;
+  }).join('');
+
+  const formatIcon = f => {
+    const fl = (f||'').toLowerCase();
+    if (fl.includes('online') || fl.includes('virtual') || fl.includes('stream')) return 'laptop';
+    if (fl.includes('in-person') || fl.includes('venue') || fl.includes('gallery')) return 'place';
+    return 'location_on';
+  };
+  const dateDisplay = e.date || (!isTool && e.dayLabel ? e.dayLabel : '');
+  const infoHtml = [
+    dateDisplay    ? `<span><span class="material-icons">schedule</span>${esc(dateDisplay)}</span>`    : '',
+    e.format       ? `<span><span class="material-icons">${formatIcon(e.format)}</span>${esc(e.format)}</span>` : '',
+    e.price        ? `<span><span class="material-icons">sell</span>${esc(e.price)}</span>`            : '',
+    e.registration ? `<span><span class="material-icons">how_to_reg</span>Registration ${esc(e.registration)}</span>` : '',
+    isTool && e.tags.includes('dual-use')  ? `<span class="dual-use-badge" data-tooltip="Trained on human creative work without the consent or compensation of the people who made it. Outputs may reproduce or displace the work of the practitioners whose labour trained the model."><span class="material-icons">warning_amber</span>dual use</span>`  : '',
+    isTool && e.tags.includes('ai-risk') ? `<span class="ai-risk-badge" data-tooltip="Higher ethical risk: may involve limited content moderation, open weights enabling unconstrained generation, or significant corporate and governmental alignment that concentrates AI infrastructure power."><span class="material-icons">gpp_bad</span>AI risk</span>` : '',
+  ].filter(Boolean).join('');
+
+  const linksHtml = e.links.map(l =>
+    `<a href="${esc(l.url)}" target="_blank" rel="noopener">${mdInline(l.text)}</a>`
+  ).join('');
+
+  const firstUrl = e.links[0] ? e.links[0].url : null;
+  const imgHtml = e.image
+    ? `<div class="card-img"><img src="${esc(e.image)}" loading="lazy" alt="" onerror="this.closest('.card-img').style.display='none'"></div>`
+    : firstUrl
+      ? `<div class="card-img" data-fetch-url="${esc(firstUrl)}" style="display:none"><img alt=""></div>`
+      : '';
+
+  return `<div class="card${e.upcoming?' is-upcoming':''}" data-card-id="${cardSlug(e.title)}">
+    ${imgHtml}
+    <div class="card-top">
+      <span class="type-badge" style="background:${color}">${esc(label)}</span>
+      ${!isTool && e.isNew    ? '<span class="new-badge">New</span>' : ''}
+      ${!isTool && !STD_MONTH.test(e.monthKey) ? '<span class="curated-badge">Curated</span>' : ''}
+      ${!isTool && e.upcoming ? '<span class="upcoming-label">Upcoming</span>' : ''}
+      ${!isTool ? `<span class="card-date">${esc(e.dayLabel || e.monthLabel)}</span>` : ''}
+    </div>
+    <div class="card-title">${titleHtml}</div>
+    ${infoHtml  ? `<div class="card-info">${infoHtml}</div>` : ''}
+    ${e.description ? `<div class="card-desc">${descHtml}</div>` : ''}
+    ${tagHtml   ? `<div class="card-tags">${tagHtml}</div>` : ''}
+    ${linksHtml ? `<div class="card-links">${linksHtml}</div>` : ''}
+  </div>`;
+}
+
+// ── Lazy og:image loader (runtime, via microlink.io) ─────────────────────────
+const SKIP_IMG   = /(logo|icon|favicon|placeholder|default|fallback|social[-_])/i;
+const USED_IMGS  = new Set(); // prevent same image appearing on multiple cards
+const FETCHED_URLS = new Map(); // cache fetch results by source URL
+
+async function fetchCardImage(el) {
+  const url = el.dataset.fetchUrl;
+  try {
+    // Reuse cached result if we've already fetched this source URL
+    let imgUrl;
+    if (FETCHED_URLS.has(url)) {
+      imgUrl = FETCHED_URLS.get(url);
+    } else {
+      const res  = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`);
+      const json = await res.json();
+      imgUrl = json?.data?.image?.url || null;
+      // Force HTTPS to avoid mixed content warnings
+      if (imgUrl) imgUrl = imgUrl.replace(/^http:\/\//, 'https://');
+      FETCHED_URLS.set(url, imgUrl);
+    }
+    // Skip generic images and images already shown on another card
+    if (imgUrl && !SKIP_IMG.test(imgUrl) && !USED_IMGS.has(imgUrl)) {
+      USED_IMGS.add(imgUrl);
+      const img = el.querySelector('img');
+      img.onload  = () => { el.style.display = ''; };
+      img.onerror = () => { /* stays hidden */ };
+      img.src = imgUrl;
+    }
+  } catch (_) { /* stays hidden */ }
+}
+
+function setupLazyImages() {
+  // querySelectorAll finds display:none elements fine — IntersectionObserver doesn't.
+  document.querySelectorAll('.card-img[data-fetch-url]').forEach(el => fetchCardImage(el));
+}
+
+function renderSources() {
+  const { intro, groups } = S.sources;
+  document.getElementById('result-count').textContent = `${groups.length} sources`;
+  document.getElementById('grid').innerHTML = groups.map(g => `
+    <div class="card">
+      <div class="card-title">${esc(g.title)}</div>
+      <div class="card-links" style="flex-direction:column;gap:6px;padding-top:0;border-top:none">
+        ${g.links.map(l => `
+          <span>
+            <a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.text)}</a>
+            ${l.desc ? `<span style="display:block;font-size:11px;color:var(--muted);margin-top:1px">${esc(l.desc)}</span>` : ''}
+          </span>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function renderTools() {
+  const q = S.search.toLowerCase().trim();
+  let results = S.tools.filter(t => {
+    if (S.categories.size && !S.categories.has(t.category)) return false;
+    if (!q) return true;
+    return [t.title, t.description, t.tags.join(' '), t.category||''].join(' ').toLowerCase().includes(q);
+  });
+  if (S.sort === 'cat') {
+    results.sort((a,b) => (a.category||'').localeCompare(b.category||'') || a.title.localeCompare(b.title));
+  } else {
+    results.sort((a,b) => a.title.localeCompare(b.title));
+  }
+  document.getElementById('result-count').textContent =
+    results.length === S.tools.length ? `${S.tools.length} tools` : `${results.length} of ${S.tools.length}`;
+  const grid = document.getElementById('grid');
+  if (!results.length) {
+    grid.innerHTML = `<div class="no-results"><strong>No tools found</strong>Try adjusting your filters.</div>`;
+    return;
+  }
+  grid.innerHTML = results.map(t => buildCard(t, q)).join('');
+  setupLazyImages();
+}
+
+function renderGlossary() {
+  const q = S.search.toLowerCase().trim();
+  let results = S.glossary.filter(g => {
+    if (S.glossaryDomains.size && !S.glossaryDomains.has(GLOSSARY_DOMAIN[g.category])) return false;
+    if (S.glossaryCategories.size && !S.glossaryCategories.has(g.category)) return false;
+    if (!q) return true;
+    return [g.title, g.acronym||'', g.description, g.tags.join(' '), g.category||''].join(' ').toLowerCase().includes(q);
+  });
+  if (S.sort === 'cat') {
+    results.sort((a,b) => {
+      const da = GLOSSARY_DOMAIN[a.category]||'', db = GLOSSARY_DOMAIN[b.category]||'';
+      return da.localeCompare(db) || (a.category||'').localeCompare(b.category||'') || a.title.localeCompare(b.title);
+    });
+  } else {
+    results.sort((a,b) => a.title.localeCompare(b.title));
+  }
+  document.getElementById('result-count').textContent =
+    results.length === S.glossary.length ? `${S.glossary.length} terms` : `${results.length} of ${S.glossary.length}`;
+  const grid = document.getElementById('grid');
+  if (!results.length) {
+    grid.innerHTML = `<div class="no-results"><strong>No terms found</strong>Try adjusting your filters.</div>`;
+    return;
+  }
+  grid.innerHTML = results.map(g => buildCard(g, q)).join('');
+}
+
+function renderTutorials() {
+  const q = S.search.toLowerCase().trim();
+  let results = S.tutorials.filter(t => {
+    if (S.tutorialTools.size && !S.tutorialTools.has(t.tool)) return false;
+    if (S.tutorialLevels.size    && !S.tutorialLevels.has(t.level))       return false;
+    if (!q) return true;
+    return [t.title, t.tool||'', t.platform||'', t.level||'', t.requires||'', t.description].join(' ').toLowerCase().includes(q);
+  });
+  results.sort((a,b) => a.title.localeCompare(b.title));
+  document.getElementById('result-count').textContent =
+    results.length === S.tutorials.length ? `${S.tutorials.length} tutorials` : `${results.length} of ${S.tutorials.length}`;
+  const grid = document.getElementById('grid');
+  if (!results.length) {
+    grid.innerHTML = `<div class="no-results"><strong>No tutorials found</strong>Try adjusting your filters.</div>`;
+    return;
+  }
+  grid.innerHTML = results.map(t => buildCard(t, q)).join('');
+}
+
+function renderGrid() {
+  if (S.view === 'sources')   { renderSources();   return; }
+  if (S.view === 'tools')     { renderTools();     return; }
+  if (S.view === 'tutorials') { renderTutorials(); return; }
+  if (S.view === 'glossary')  { renderGlossary();  return; }
+
+  const results = getFiltered();
+  const q = S.search.trim();
+  const total = S.entries.length;
+
+  document.getElementById('result-count').textContent =
+    results.length === total
+      ? `${total} entries`
+      : `${results.length} of ${total}`;
+
+  const grid = document.getElementById('grid');
+  if (!results.length) {
+    setupLazyImages();
+    grid.innerHTML = `<div class="no-results">
+      <strong>No entries found</strong>
+      Try adjusting your filters or search term.
+    </div>`;
+    return;
+  }
+  grid.innerHTML = results.map(e => buildCard(e, q)).join('');
+  setupLazyImages();
+}
+
+function refresh() {
+  buildNav();
+  buildFilters();
+  renderGrid();
+  serializeState();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── Events ───────────────────────────────────────────────────────────────────
+function switchView(v) {
+  S.view = v;
+  if (S.view !== 'digest')   { S.timeFilter = 'all'; S.types.clear(); S.tag = null; }
+  if (S.view !== 'tools')    S.categories.clear();
+  if (S.view !== 'tutorials') { S.tutorialTools.clear(); S.tutorialLevels.clear(); }
+  if (S.view !== 'glossary')  { S.glossaryCategories.clear(); S.glossaryDomains.clear(); }
+  S.sort = (S.view === 'tools' || S.view === 'glossary' || S.view === 'tutorials') ? 'alpha' : 'date-desc';
+}
+
+// ── URL State ─────────────────────────────────────────────────────────────────
+function serializeState() {
+  const p = new URLSearchParams();
+  if (S.view && S.view !== 'digest')       p.set('v',     S.view);
+  if (S.search)                            p.set('q',     S.search);
+  if (S.timeFilter && S.timeFilter !== 'all') p.set('time', S.timeFilter);
+  if (S.types.size)                        p.set('type',  [...S.types].join(','));
+  if (S.tag)                               p.set('tag',   S.tag);
+  if (S.categories.size)                   p.set('cat',   [...S.categories].join(','));
+  if (S.tutorialTools.size)                p.set('tool',  [...S.tutorialTools].join(','));
+  if (S.tutorialLevels.size)               p.set('level', [...S.tutorialLevels].join(','));
+  const defaultSort = (S.view === 'tools' || S.view === 'glossary' || S.view === 'tutorials') ? 'alpha' : 'date-desc';
+  if (S.sort && S.sort !== defaultSort)    p.set('sort',  S.sort);
+  const str = p.toString();
+  history.replaceState(null, '', str ? '#' + str : location.pathname + location.search);
+}
+
+function deserializeState() {
+  const hash = location.hash.slice(1);
+  if (!hash) return;
+  const p = new URLSearchParams(hash);
+  const v = p.get('v');
+  if (v && ['digest', 'tools', 'tutorials', 'glossary'].includes(v)) switchView(v);
+  const q = p.get('q');     if (q)     S.search = q;
+  const time = p.get('time'); if (time) S.timeFilter = time;
+  const type = p.get('type'); if (type) type.split(',').filter(Boolean).forEach(t => S.types.add(t));
+  const tag  = p.get('tag');  if (tag)  S.tag = tag;
+  const cat  = p.get('cat');  if (cat)  cat.split(',').filter(Boolean).forEach(c => S.categories.add(c));
+  const tool = p.get('tool'); if (tool) tool.split(',').filter(Boolean).forEach(t => S.tutorialTools.add(t));
+  const lvl  = p.get('level'); if (lvl) lvl.split(',').filter(Boolean).forEach(l => S.tutorialLevels.add(l));
+  const sort = p.get('sort'); if (sort) S.sort = sort;
+}
+
+function wireEvents() {
+  // Keep --header-h in sync so filter-row sticky top stays correct
+  const hdr = document.querySelector('header');
+  const setHeaderH = () => document.documentElement.style.setProperty('--header-h', hdr.offsetHeight + 'px');
+  setHeaderH();
+  new ResizeObserver(setHeaderH).observe(hdr);
+
+  // View tabs
+  document.getElementById('view-nav').addEventListener('click', ev => {
+    const tab = ev.target.closest('.view-tab');
+    if (!tab || !tab.dataset.view) return;
+    switchView(tab.dataset.view);
+    refresh();
+  });
+
+  // Filter pills (event delegation on container)
+  document.getElementById('filters').addEventListener('click', ev => {
+    const pill = ev.target.closest('.pill');
+    if (!pill) return;
+    if (pill.dataset.sort) {
+      S.sort = pill.dataset.sort;
+    } else if (pill.dataset.timefilter) {
+      S.timeFilter = pill.dataset.timefilter;
+    } else if (pill.dataset.view) {
+      switchView(pill.dataset.view);
+    } else if (pill.dataset.glossdomain) {
+      const d = pill.dataset.glossdomain;
+      S.glossaryDomains.has(d) ? S.glossaryDomains.delete(d) : S.glossaryDomains.add(d);
+      // Drop any subcategory selections that no longer belong to a visible domain
+      const visAI  = !S.glossaryDomains.size || S.glossaryDomains.has('AI');
+      const visDes = !S.glossaryDomains.size || S.glossaryDomains.has('Design');
+      const AI_C   = ['concept','model','training','safety','tool'];
+      const DES_C  = ['typography','type design','book design'];
+      S.glossaryCategories.forEach(c => {
+        if (AI_C.includes(c)  && !visAI)  S.glossaryCategories.delete(c);
+        if (DES_C.includes(c) && !visDes) S.glossaryCategories.delete(c);
+      });
+    } else if (pill.dataset.glosscat) {
+      const c = pill.dataset.glosscat;
+      S.glossaryCategories.has(c) ? S.glossaryCategories.delete(c) : S.glossaryCategories.add(c);
+    } else if (pill.dataset.type) {
+      const t = pill.dataset.type;
+      S.types.has(t) ? S.types.delete(t) : S.types.add(t);
+    } else if (pill.dataset.cat) {
+      const c = pill.dataset.cat;
+      S.categories.has(c) ? S.categories.delete(c) : S.categories.add(c);
+    } else if (pill.dataset.tuttool) {
+      const p = pill.dataset.tuttool;
+      S.tutorialTools.has(p) ? S.tutorialTools.delete(p) : S.tutorialTools.add(p);
+    } else if (pill.dataset.tutlevel) {
+      const l = pill.dataset.tutlevel;
+      S.tutorialLevels.has(l) ? S.tutorialLevels.delete(l) : S.tutorialLevels.add(l);
+    } else if (pill.dataset.tag !== undefined) {
+      const t = pill.dataset.tag;
+      S.tag = S.tag === t ? null : t;
+    }
+    refresh();
+  });
+
+  // Tag chips on cards (event delegation) — refresh() so filter bar reflects active tag
+  document.getElementById('grid').addEventListener('click', ev => {
+    const tag = ev.target.closest('.tag');
+    if (!tag) return;
+    S.tag = S.tag === tag.dataset.tag ? null : tag.dataset.tag;
+    refresh();
+  });
+
+  // Search
+  document.getElementById('search').addEventListener('input', ev => {
+    S.search = ev.target.value;
+    renderGrid();
+  });
+
+  // Hide filters + whats-new on scroll down, reveal on scroll up
+  let filterHidden = false;
+  let scrollAnchor = 0;
+  let scrollTicking = false;
+  const filterRow = document.querySelector('.filter-row');
+  window.addEventListener('scroll', () => {
+    if (scrollTicking) return;
+    scrollTicking = true;
+    requestAnimationFrame(() => {
+      const current = window.scrollY;
+      if (!filterHidden && current > scrollAnchor + 60) {
+        filterRow.classList.add('filters-hidden');
+        filterHidden = true;
+        scrollAnchor = current;
+      } else if (filterHidden && current < scrollAnchor - 20) {
+        filterRow.classList.remove('filters-hidden');
+        filterHidden = false;
+        scrollAnchor = current;
+      }
+      scrollTicking = false;
+    });
+  }, { passive: true });
+}
+
+// ── Bootstrap ────────────────────────────────────────────────────────────────
+function initCalendar(text, glossaryText, tutorialsText) {
+  const parsed  = parseCalendar(text);
+  S.entries   = parsed.entries;
+  S.sources   = parsed.sources;
+  S.tools     = parsed.tools;
+  S.glossary  = glossaryText  ? parseGlossary(glossaryText)   : [];
+  S.tutorials = tutorialsText ? parseTutorials(tutorialsText) : [];
+  // Set last-updated to first working day (Mon) of current week
+  const STD = /^\d\d[\u00B7\xB7·]\d\d$/;
+  (() => {
+    const today = new Date();
+    const day = today.getDay(); // 0=Sun, 1=Mon…
+    const diffToMon = day === 0 ? -6 : 1 - day;
+    const mon = new Date(today);
+    mon.setDate(today.getDate() + diffToMon);
+    const yy = String(mon.getFullYear()).slice(2);
+    const stamp = `${ordinal(mon.getDate())} ${MONTH_NAMES[mon.getMonth()]} '${yy}`;
+    document.getElementById('last-updated').textContent = `Updated ${stamp}`;
+  })();
+
+  // ── What's New — populate recent entries list ───────────────────────────
+  const wnList = document.getElementById('wn-list');
+  if (wnList) {
+    const INITIAL = 8;
+    const recentCal = S.entries
+      .filter(e => STD.test(e.monthKey) && e.type !== 'profile')
+      .sort((a, b) => b.dateSort.localeCompare(a.dateSort))
+      .slice(0, 5)
+      .map(e => ({ view: 'digest', type: e.type, title: e.title, date: e.dayLabel || e.monthLabel, desc: '' }));
+    const recentProfiles = S.entries
+      .filter(e => e.type === 'profile' && e.added)
+      .sort((a, b) => b.added.localeCompare(a.added))
+      .slice(0, 3)
+      .map(e => ({ view: 'digest', type: 'profile', title: e.title, date: e.monthLabel, desc: '' }));
+    const recentTools = S.tools.slice(-3)
+      .map(t => ({ view: 'tools', type: 'tool', title: t.title, date: '', desc: t.tags.slice(0,4).join(', ') }));
+    const recentTuts = S.tutorials.slice(-3)
+      .map(t => ({ view: 'tutorials', type: t.tool || 'tutorial', title: t.title, date: t.level || '', desc: '' }));
+    const combined = [...recentCal, ...recentProfiles, ...recentTools, ...recentTuts];
+
+    const wnMore = document.getElementById('wn-more');
+    const renderItem = e =>
+      `<li data-wn-view="${esc(e.view)}" data-wn-id="${cardSlug(e.title)}"><span class="wn-type">${esc(e.type)}</span><span class="wn-title">${esc(e.title)}</span>${e.desc ? `<span class="wn-summary">${esc(e.desc)}</span>` : ''}<span class="wn-date">${esc(e.date)}</span></li>`;
+
+    wnList.innerHTML = combined.slice(0, INITIAL).map(renderItem).join('');
+    if (wnMore) wnMore.style.display = combined.length > INITIAL ? '' : 'none';
+
+    if (wnMore) wnMore.addEventListener('click', () => {
+      const extra = combined.slice(INITIAL).map(renderItem).join('');
+      wnList.insertAdjacentHTML('beforeend', extra);
+      wnMore.style.display = 'none';
+    });
+
+    // Click to search for card
+    wnList.addEventListener('click', ev => {
+      const li = ev.target.closest('li[data-wn-view]');
+      if (!li) return;
+      const view  = li.dataset.wnView;
+      const title = li.querySelector('.wn-title').textContent;
+      switchView(view);
+      S.search = title;
+      document.getElementById('search').value = title;
+      refresh();
+      window.scrollTo({ top: 0 });
+    });
+  }
+
+  // ── What's New — toggle wiring ──────────────────────────────────────────
+  const wnPanel = document.getElementById('whats-new');
+  const wnBtn   = document.getElementById('wn-toggle');
+  if (wnPanel && wnBtn) {
+    const initHidden = localStorage.getItem('whatsNewHidden') === 'true';
+    if (initHidden) {
+      wnPanel.classList.add('wn-hidden');
+      wnBtn.textContent = "what's new";
+      wnBtn.setAttribute('aria-expanded', 'false');
+    }
+    wnBtn.addEventListener('click', () => {
+      const hidden = wnPanel.classList.toggle('wn-hidden');
+      wnBtn.textContent = hidden ? "what's new" : 'hide';
+      wnBtn.setAttribute('aria-expanded', String(!hidden));
+      localStorage.setItem('whatsNewHidden', hidden);
+    });
+  }
+
+  deserializeState();
+  const searchEl = document.getElementById('search');
+  if (searchEl && S.search) searchEl.value = S.search;
+  wireEvents();
+  refresh();
+}
+
+// ── BUILD_INJECT ──
+initCalendar('', '', '');
+</script>
+</body>
+</html>
