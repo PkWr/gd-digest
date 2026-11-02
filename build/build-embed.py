@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-build-embed.py — generates embed.html from template.html + gd-digest.md.
+build-embed.py — generates index.html from template.html + gd-digest.md.
 
 At build time:
   1. Parses gd-digest.md to find all entry URLs (first link per entry)
@@ -8,7 +8,7 @@ At build time:
   3. Skips generic/logo images using heuristics
   4. Injects Image: lines into a markdown copy (doesn't modify gd-digest.md)
   5. Injects content at BUILD_INJECT marker in template.html
-  6. Writes self-contained embed.html with INLINE_MD baked in
+  6. Writes self-contained index.html with INLINE_MD baked in
 
 Usage: python3 build-embed.py
 """
@@ -31,7 +31,7 @@ SRC_MD        = os.path.join(CONTENT, 'gd-digest.md')
 SRC_TOOLS     = os.path.join(CONTENT, 'tools.md')
 SRC_GLOSSARY  = os.path.join(CONTENT, 'glossary.md')
 SRC_TUTORIALS = os.path.join(CONTENT, 'tutorials.md')
-OUT_HTML      = '../embed.html'
+OUT_HTML      = '../index.html'
 TIMEOUT  = 8   # seconds per request
 WORKERS  = 12  # concurrent fetches
 
@@ -266,7 +266,7 @@ def main():
     # 3. Inject Image: lines into a copy of the combined markdown
     md_augmented = inject_images(md_combined, image_map)
 
-    # 4. Build embed.html
+    # 4. Build index.html
     embed = build_embed(html, md_augmented, glossary_md, tutorials_md)
 
     with open(OUT_HTML, 'w') as f:
